@@ -1,0 +1,3 @@
+#!/bin/bash
+make clean all && ls -l *.bin && ./thumbulator mecrisp-stellaris-kl25z128.bin
+
