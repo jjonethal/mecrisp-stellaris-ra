@@ -23,8 +23,6 @@
    ldr r0, =konstantenfaltungszeiger
    movs r1, #0    @ Clear constant folding pointer
    str r1, [r0]
-   
-   bl init_register_allocator
 
    @ Suche nach der init-Definition:
    @ Search for current init definition in dictionary:

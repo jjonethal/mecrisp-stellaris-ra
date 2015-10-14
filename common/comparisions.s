@@ -20,7 +20,7 @@
 @ Comparision operators
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_foldable_1|Flag_inline|Flag_allocator, "0=" @ ( x -- ? )
+  Wortbirne Flag_foldable_1|Flag_inline, "0=" @ ( x -- ? )
 @ -----------------------------------------------------------------------------
 @        subs TOS, TOS, #1       ; if zero, carry is set, else carry is clear
 @        sbc TOS, TOS, TOS       ; subtracting r0 from itself leaves zero if
@@ -29,65 +29,33 @@
   sbcs tos, tos
   bx lr
 
-@ allocator_equal_zero:
-    push {lr}
-      bl prepare_single_compare @ Beinhaltet expect_one_element.
-      bl allocator_one_minus
-      bl eliminiere_tos
-
-      ldr r1, =0xD200
-      str r1, [r0, #offset_sprungtrampolin] @ Daraus wird später der sbcs-Opcode zusammengesetzt, falls nötig.
-    pop {pc}
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_foldable_1|Flag_inline|Flag_allocator, "0<>" @ ( x -- ? ) @ Meins
+  Wortbirne Flag_foldable_1|Flag_inline, "0<>" @ ( x -- ? ) @ Meins
 @ -----------------------------------------------------------------------------
   subs tos, #1
   sbcs tos, tos
   mvns tos, tos
   bx lr
 
-allocator_unequal_zero:
-    push {lr}
-      bl prepare_single_compare @ Beinhaltet expect_one_element.
-      bl allocator_one_minus
-      bl eliminiere_tos
-
-      ldr r1, =0xD300
-      str r1, [r0, #offset_sprungtrampolin] @ Daraus wird später die sbcs/mvns-Opcodesequenz zusammengesetzt, falls nötig.
-    pop {pc}
-
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_foldable_1|Flag_inline|Flag_allocator, "0<" @ ( n -- ? )
+  Wortbirne Flag_foldable_1|Flag_inline, "0<" @ ( n -- ? )
 @ -----------------------------------------------------------------------------
   movs TOS, TOS, asr #31    @ Turn MSB into 0xffffffff or 0x00000000
   bx lr
 
-    push {lr}
-      bl prepare_single_compare @ Beinhaltet expect_one_element.
-
-      pushdaconstw 0x17C0 @ asrs r0, r0, #31
-      bl chsmallplusminus
-
-      ldr r1, =0xD500
-      str r1, [r0, #offset_sprungtrampolin] @ Daraus wird später die sbcs/mvns-Opcodesequenz zusammengesetzt, falls nötig.
-    pop {pc}
-
-@ Wenn TOS Konstante ist, werden die 0-Vergleiche sowieso gefaltet.
-@ Also ist TOS ohnehin ein Register.
-
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_foldable_2|Flag_allocator, ">=" @ ( x1 x2 -- ? ) @ Meins
+  Wortbirne Flag_foldable_2, ">=" @ ( x1 x2 -- ? ) @ Meins
 @ -----------------------------------------------------------------------------
   .ifdef m0core
   ldm psp!, {r0}      @ Get x1 into a register.
   cmp r0, tos         @ Is x2 less?
   bge 1f
   movs tos, #0
-  b 2f
+  bx lr
 1:movs tos, #0
   mvns tos, tos
-2:bx lr
+  bx lr
 
   .else
   ldm psp!, {r0}     @ Get x1 into a register.
@@ -98,22 +66,18 @@ allocator_unequal_zero:
   bx lr
   .endif
 
-    pushdaconstw 0xDB00 @ bls signed less
-    pushdaconstw 0xDA00 @ bge signed greater or equal
-    b.n prepare_compare
-
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_foldable_2|Flag_allocator, "<=" @ ( x1 x2 -- ? ) @ Meins
+  Wortbirne Flag_foldable_2, "<=" @ ( x1 x2 -- ? ) @ Meins          
 @ -----------------------------------------------------------------------------
   .ifdef m0core
   ldm psp!, {r0}     @ Get x1 into a register.
   cmp r0, tos        @ Is x2 greater?
-  ble 1f
+  ble 1f  
   movs tos, #0
-  b 2f
+  bx lr
 1:movs tos, #0
   mvns tos, tos
-2:bx lr
+  bx lr
 
   .else
   ldm psp!, {r0}     @ Get x1 into a register.
@@ -124,12 +88,9 @@ allocator_unequal_zero:
   bx lr
   .endif
 
-    pushdaconstw 0xDC00 @ bgt signed greater
-    pushdaconstw 0xDD00 @ bls signed less or equal
-    b.n prepare_compare
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_foldable_2|Flag_allocator, "<" @ ( x1 x2 -- ? )
+  Wortbirne Flag_foldable_2, "<" @ ( x1 x2 -- ? )
                       @ Checks if x2 is less than x1.
 @ -----------------------------------------------------------------------------
   .ifdef m0core
@@ -138,9 +99,9 @@ allocator_unequal_zero:
   bge 1f
   movs tos, #0
   mvns tos, tos
-  b 2f
+  bx lr
 1:movs tos, #0
-2:bx lr
+  bx lr
 
   .else
   ldm psp!, {r0}     @ Get x1 into a register.
@@ -151,12 +112,8 @@ allocator_unequal_zero:
   bx lr
   .endif
 
-    pushdaconstw 0xDA00 @ bge signed greater or equal
-    pushdaconstw 0xDB00 @ bls signed less
-    b.n prepare_compare
-
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_foldable_2|Flag_allocator, ">" @ ( x1 x2 -- ? )
+  Wortbirne Flag_foldable_2, ">" @ ( x1 x2 -- ? )
                       @ Checks if x2 is greater than x1.
 @ -----------------------------------------------------------------------------
   .ifdef m0core
@@ -165,9 +122,9 @@ allocator_unequal_zero:
   ble 1f
   movs tos, #0
   mvns tos, tos
-  b 2f
+  bx lr
 1:movs tos, #0
-2:bx lr
+  bx lr
 
   .else
   ldm psp!, {r0}     @ Get x1 into a register.
@@ -178,12 +135,8 @@ allocator_unequal_zero:
   bx lr
   .endif
 
-    pushdaconstw 0xDD00 @ bls signed less or equal
-    pushdaconstw 0xDC00 @ bgt signed greater
-    b.n prepare_compare
-
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_foldable_2|Flag_allocator, "u>=" @ ( u1 u2 -- ? ) @ Meins
+  Wortbirne Flag_foldable_2|Flag_inline, "u>=" @ ( u1 u2 -- ? ) @ Meins
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0}      @ Get u1 into a register.
   subs tos, r0, tos   @ subs tos, w, tos   @ TOS = a-b  -- carry set if a is less than b
@@ -191,12 +144,8 @@ allocator_unequal_zero:
   mvns tos, tos
   bx lr
 
-    pushdaconstw 0xD300 @ blo unsigned lower
-    pushdaconstw 0xD200 @ bhs unsigned higher or same
-    b.n prepare_compare
-
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_foldable_2|Flag_allocator, "u<=" @ ( u1 u2 -- ? ) @ Meins
+  Wortbirne Flag_foldable_2|Flag_inline, "u<=" @ ( u1 u2 -- ? ) @ Meins
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0}
   subs tos, r0
@@ -204,36 +153,24 @@ allocator_unequal_zero:
   mvns tos, tos
   bx lr
 
-    pushdaconstw 0xD800 @ bhi unsigned higher
-    pushdaconstw 0xD900 @ bls unsigned lower or same
-    b.n prepare_compare
-
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_foldable_2|Flag_allocator, "u<" @ ( u1 u2 -- ? )
+  Wortbirne Flag_foldable_2|Flag_inline, "u<" @ ( u1 u2 -- ? )
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0}      @ Get u1 into a register.
   subs tos, r0, tos   @ subs tos, w, tos   @ TOS = a-b  -- carry set if a is less than b
   sbcs tos, tos
   bx lr
 
-    pushdaconstw 0xD200 @ bhs unsigned higher or same
-    pushdaconstw 0xD300 @ blo unsigned lower
-    b.n prepare_compare
-
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_foldable_2|Flag_allocator, "u>" @ ( u1 u2 -- ? ) @ Meins
+  Wortbirne Flag_foldable_2|Flag_inline, "u>" @ ( u1 u2 -- ? ) @ Meins
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0}
   subs tos, r0
   sbcs tos, tos
   bx lr
 
-    pushdaconstw 0xD900 @ bls unsigned lower or same
-    pushdaconstw 0xD800 @ bhi unsigned higher
-    b.n prepare_compare
-
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_foldable_2|Flag_allocator, "<>" @ ( x1 x2 -- ? )
+  Wortbirne Flag_inline|Flag_opcodierbar_GleichUngleich, "<>" @ ( x1 x2 -- ? )
                        @ Compares the top two stack elements for inequality.
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0}      @ Get the next elt into a register.
@@ -250,12 +187,8 @@ allocator_unequal_zero:
   bx lr
   .endif
 
-    pushdaconstw 0xD000 @ Opcode: beq
-    dup
-    b.n prepare_compare
-
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_foldable_2|Flag_allocator, "=" @ ( x1 x2 -- ? )
+  Wortbirne Flag_inline|Flag_opcodierbar_GleichUngleich, "=" @ ( x1 x2 -- ? )
                       @ Compares the top two stack elements for equality.
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0}     @ Get the next elt into a register.
@@ -264,238 +197,6 @@ allocator_unequal_zero:
   subs tos, #1       @ Wenn es Null war, gibt es jetzt einen Überlauf
   sbcs tos, tos
   bx lr
-
-    pushdaconstw 0xD100 @ Opcode: bne
-    dup
-    b.n prepare_compare
-
- .ltorg
-
-@ -----------------------------------------------------------------------------
-prepare_single_compare:
-@ -----------------------------------------------------------------------------
-  push {lr}
-  bl expect_one_element
-
-  @ Es gibt maximal drei Elemente im RA. Eins wird am Ende rausfliegen.
-  @ Falls die beiden anderen Elemente also Konstanten sind, müssen sie jetzt generiert werden.
-
-
-    ldr r3, [r0, #offset_state_3os]
-    cmp r3, #constant
-    bne 6f
-
-      @ 3OS ist eine Konstante. Packe sie jetzt und sofort in einen Register !
-      bl get_free_register
-      str r3, [r0, #offset_state_3os] @ Setze den neuen Register von 3OS
-
-      @ Ist sie schon in r0 oder r1 ? Dann übernehmen ! ***********************************************************************************************
-      @ Hier erstmal zum Ausprobieren radikal frisch in den Register hineingenerieren.
-
-      pushdatos
-      ldr tos, [r0, #offset_constant_3os] @ Hole die Konstante
-      pushda r3 @ Zielregister
-      bl registerliteralkomma
-
-6:  @ 3OS ist unschädlich/unschädlich gemacht worden.
-
-
-
-    ldr r3, [r0, #offset_state_nos]
-    cmp r3, #constant
-    bne 6f
-
-      @ 3OS ist eine Konstante. Packe sie jetzt und sofort in einen Register !
-      bl get_free_register
-      str r3, [r0, #offset_state_nos] @ Setze den neuen Register von 3OS
-
-      @ Ist sie schon in r0 oder r1 ? Dann übernehmen ! ***********************************************************************************************
-      @ Hier erstmal zum Ausprobieren radikal frisch in den Register hineingenerieren.
-
-      pushdatos
-      ldr tos, [r0, #offset_constant_nos] @ Hole die Konstante
-      pushda r3 @ Zielregister
-      bl registerliteralkomma
-
-6:  @ 3OS ist unschädlich/unschädlich gemacht worden.
-
-  pop {pc}
-
-@ -----------------------------------------------------------------------------
-prepare_compare:
-@ -----------------------------------------------------------------------------
-
-    push {lr} @ So ähnlich wie die Optimierungen in Plus und Minus
-    bl expect_two_elements @ Zwei Elemente, die NICHT verändert werden. Mindestens eins davon ist ein Register, sonst würde gefaltet werden.
-
-    @ Es gibt maximal drei Elemente im RA. Zwei werden am Ende dieser Prozedur rausfliegen.
-    @ Kontrollstrukturen, die ein Sprungopcode aufnehmen und über die Flags kommunizieren, müssen sowieso zurück zum kanonischen Stack.
-    @ Das Schieben / Umladen ist Flag-Erhaltend, nur das Generieren von Konstanten täte weh.
-    @ Wenn also 3OS hier eine Konstante ist, wird ein freier Register angefordert und sie hineingeladen, damit später das Zurück-zum-kanonischen-Stack funktioniert.
-
-    ldr r3, [r0, #offset_state_3os]
-    cmp r3, #constant
-    bne 6f
-
-      @ 3OS ist eine Konstante. Packe sie jetzt und sofort in einen Register !
-      bl get_free_register
-      str r3, [r0, #offset_state_3os] @ Setze den neuen Register von 3OS
-
-      @ Ist sie schon in r0 oder r1 ? Dann übernehmen ! ***********************************************************************************************
-      @ Hier erstmal zum Ausprobieren radikal frisch in den Register hineingenerieren.
-
-      pushdatos
-      ldr tos, [r0, #offset_constant_3os] @ Hole die Konstante
-      pushda r3 @ Zielregister
-      bl registerliteralkomma
-
-6:  @ 3OS ist unschädlich/unschädlich gemacht worden.
-
-
-    @ Ist in TOS oder in NOS eine kleine Konstante ?
-    ldr r2, [r0, #offset_state_nos]
-    cmp r2, #constant
-    bne 1f
-      bl swap_allocator @ Wenn NOS eine Konstante gewesen ist, war TOS es nicht (Vorherige Faltung !) und ich kann einfach umtauschen.
-      nip @ Vergesse den unteren Sprungopcode
-      b 2f
-1:  @ Nicht umgetauscht:
-    drop @ Vergesse den oberen Sprungopcode
-2:  @ Wenn eine Konstante da ist, ist sie jetzt in TOS.
-
-    @ Ist jetzt TOS eine kleine Konstante ?
-
-    ldr r1, [r0, #offset_state_tos]
-    cmp r1, #constant
-    bne 3f
-      ldr r1, [r0, #offset_constant_tos]
-      cmp r1, #0xff
-      bhi 3f
-        @ TOS ist eine kleine Konstante.
-        pushdaconstw 0x2800 @ cmp r0, #imm8
-        orrs tos, r1
-        ldr r1, [r0, offset_state_nos] @ NOS dann der Faltung wegen unbedingt ein Register.
-        lsls r1, #8
-        b.n 4f
-
-
-3:  @ Schritt eins: Die Konstante, falls TOS jetzt eine sein sollten, laden.
-    @ NOS kann durch den Swap keine Konstante sein.
-    bl expect_tos_in_register
-
-    @ Beide Argumente sind jetzt in Registern.
-    pushdaconstw 0x4280 @ cmp r0, r0
-    @ Baue Quell- und "Ziel-" Register in den Opcode ein.
-
-    lsls r2, #3  @ Zweiter Operand ist um 3 Stellen geschoben
-
-    @ Baue jetzt den Opcode zusammen:
-
-    orrs tos, r2
-4:  orrs tos, r1
-
-    bl hkomma
-
-    @ Vergiss die bisherige Registerzuordnung
-
-    bl eliminiere_tos
-    bl eliminiere_tos
-
-    @ Das Ergebnis ist jetzt erstmal nur in den Flags - welche bei Bedarf von einem Flaggenerator geschrieben werden oder von einer Kontrollstruktur direkt geschluckt.
-
-    str tos, [r0, #offset_sprungtrampolin]
-    drop
-    pop {pc}
-
-@ -----------------------------------------------------------------------------
-sprungschreiber_flaggenerator:
-@ -----------------------------------------------------------------------------
-  push {r0, r1, r2, r3, lr}
-    @ writeln "Sprungschreiber"
-    ldr r0, =allocator_base
-    ldr r1, [r0, #offset_sprungtrampolin]
-    cmp r1, #0
-    beq 1f
-
-      pushdatos
-      ldr tos, [r0, #offset_sprungtrampolin]
-        movs r1, #0
-        str r1, [r0, #offset_sprungtrampolin]
-
-    @ ( Sprungopcode -- )
-    @ Kümmere mich um das Ergebnis !
-
-    @ In diesen neuen Register muss ich nun abhängig von den Flags einen Wert generieren.
-
-      @ Im Falle des Carry-Flags gibt es einen kürzeren Weg, ein Flag zusammenzubauen:
-      lsrs r1, tos, #8 @ Sprungopcode so schieben, dass ich bequem vergleichen kann
-@      pushda r1
-@      bl hexdot
-
-      cmp r1, #0xD5 @ Opcode bpl - der Minussprung. Er wird ausschließlich von 0< generiert.
-      bne 2f
-        @ Die Besonderheit: Dieses Flag ist schon fertig in einem Register. Muss nichts tun.
-        drop
-        pop {r0, r1, r2, r3, pc}
-2:
-
-    @ Alle anderen Fälle benötigen einen neuen Register, in dem das Flag generiert werden kann.
-    bl befreie_tos
-    bl get_free_register
-    str r3, [r0, #offset_state_tos]
-
-
-      cmp r1, #0xD2
-      bne 2f
-        ldr tos, =0x4180 @ sbcs r0, r0, #0
-        bl smalltworegisters
-        pop {r0, r1, r2, r3, pc}
-2:
-
-      cmp r1, #0xD3
-      bne 2f
-        ldr tos, =0x4180 @ sbcs r0, r0, #0
-        bl smalltworegisters
-        bl allocator_not
-        pop {r0, r1, r2, r3, pc}
-2:
-
-    @ Dies ist der "normale" Flaggenerator, der immer und bei allen Flagkombinationen funktioniert.
-
-    adds tos, #2 @ Flaggenerator_inverted benötigt einen Sprung drei Befehle weiter
-    @ Bedingten Sprung schreiben, um Flag zu generieren
-    bl hkomma
-
-    pushdaconstw 0x2000 @ movs r0, #0
-    bl smallplusminus
-    bl allocator_not @ Generates: mvns r0, r0
-
-    pushdaconstw 0xE000 @ b ein Befehl weiter
-    bl hkomma
-    pushdaconstw 0x2000 @ movs r0, #0
-    bl smallplusminus
-
-1:pop {r0, r1, r2, r3, pc}
-
-smallplusminus:
-    push {lr}
-    bl expect_one_element @ Da nicht gefaltet worden ist, muss es sich um einen Register handeln.
-    bl make_tos_changeable
-    ldr r1, [r0, #offset_state_tos]
-    lsls r1, #8
-    orrs tos, r1
-    bl hkomma
-    pop {pc}
-
-eliminiere_tos_wenn_bmi: @ Dies wird vor dem Einpflegen der Sprünge in eine Konstrollstruktur aufgerufen.
-  push {lr}              @ 0< hat die Besonderheit, einen Forth-Flag in ein Register zu legen. Dieser muss entfernt werden, wenn der Sprungopcode benutzt wird.
-
-    ldr r1, [r0, #offset_sprungtrampolin]
-    lsrs r1, r1, #8
-    cmp r1, #0xD5 @ BMI Opcode
-    bne 1f
-      bl eliminiere_tos
-1:pop {pc}
 
 @ -----------------------------------------------------------------------------
   Wortbirne Flag_foldable_2|Flag_inline, "min" @ ( x1 x2 -- x3 )
@@ -522,7 +223,7 @@ eliminiere_tos_wenn_bmi: @ Dies wird vor dem Einpflegen der Sprünge in eine Kon
 @ -----------------------------------------------------------------------------
   .ifdef m0core
   ldm psp!, {r0}       @ Get x1 into a register.
-  cmp r0, tos          @ Compare 'em.
+  cmp r0, tos          @ Compare 'em.  
   blt 1f
   movs tos, r0
 1:bx lr
@@ -540,14 +241,14 @@ eliminiere_tos_wenn_bmi: @ Dies wird vor dem Einpflegen der Sprünge in eine Kon
 @ -----------------------------------------------------------------------------
   .ifdef m0core
   ldm psp!, {r0}  @ Get u1 into a register.
-  cmp r0, tos
+  cmp r0, tos 
   blo 1f
   movs tos, r0
 1:bx lr
 
   .else
   ldm psp!, {r0}  @ Get u1 into a register.
-  cmp r0, tos
+  cmp r0, tos 
   it hi           @ If W > TOS,
   movhi tos, r0   @  replace TOS with W.
   bx lr
@@ -558,7 +259,7 @@ eliminiere_tos_wenn_bmi: @ Dies wird vor dem Einpflegen der Sprünge in eine Kon
 @ -----------------------------------------------------------------------------
   .ifdef m0core
   ldm psp!, {r0}  @ Get u1 into a register.
-  cmp r0, tos
+  cmp r0, tos 
   bhi 1f
   movs tos, r0
 1:bx lr

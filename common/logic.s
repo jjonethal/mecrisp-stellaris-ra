@@ -35,44 +35,68 @@
   bx lr
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator_Rechenlogik_kommutativ, "and" @ ( x1 x2 -- x1&x2 )
+  Wortbirne Flag_inline|Flag_opcodierbar_Rechenlogik_M3, "and" @ ( x1 x2 -- x1&x2 )
                         @ Combines the top two stack elements using bitwise AND.
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0}
   ands tos, r0
   bx lr
+  ands tos, r0 @ Opcode for use with literal in register
 
-  ands r0, r0
+  .ifndef m0core @ Opcode with 12-bit encoded constant only available on M3/M4
+  .hword 0x0600
+  .hword 0xF016
+  .endif @ Opcode ands tos, tos, #imm12
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator_Rechenlogik_unkommutativ, "bic" @ ( x1 x2 -- x1&~x2 )
+  Wortbirne Flag_inline|Flag_opcodierbar_Rechenlogik_M3, "bic" @ ( x1 x2 -- x1&~x2 )
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0}
   bics r0, tos
   movs tos, r0
   bx lr
+  bics tos, r0 @ Opcode for use with literal in register
 
-  bics r0, r0
+  .ifndef m0core @ Opcode with 12-bit encoded constant only available on M3/M4
+  .hword 0x0600
+  .hword 0xF036
+  .endif @ Opcode bics tos, tos, #imm12
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator_Rechenlogik_kommutativ, "or" @ ( x1 x2 -- x1|x2 )
+  Wortbirne Flag_inline|Flag_opcodierbar_Rechenlogik_M3, "or" @ ( x1 x2 -- x1|x2 )
                        @ Combines the top two stack elements using bitwise OR.
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0}
   orrs tos, r0
   bx lr
+  orrs tos, r0 @ Opcode for use with literal in register
 
-  orrs r0, r0
+  .ifndef m0core @ Opcode with 12-bit encoded constant only available on M3/M4
+  .hword 0x0600
+  .hword 0xF056
+  .endif @ Opcode orrs tos, tos, #imm12
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator_Rechenlogik_kommutativ, "xor" @ ( x1 x2 -- x1|x2 )
+  Wortbirne Flag_inline|Flag_opcodierbar_Rechenlogik_M3, "xor" @ ( x1 x2 -- x1|x2 )
                         @ Combines the top two stack elements using bitwise exclusive-OR.
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0}
   eors tos, r0
   bx lr
+  eors tos, r0 @ Opcode for use with literal in register
 
-  eors r0, r0
+  .ifndef m0core @ Opcode with 12-bit encoded constant only available on M3/M4
+  .hword 0x0600
+  .hword 0xF096
+  .endif @ Opcode eors tos, tos, #imm12
+
+
+@ -----------------------------------------------------------------------------
+  Wortbirne Flag_foldable_1|Flag_inline, "not" @ ( x -- ~x )
+@ -----------------------------------------------------------------------------
+  mvns tos, tos
+  bx lr
+
 
   .ifdef m0core
 @ -----------------------------------------------------------------------------
@@ -107,6 +131,18 @@
   .endif
 
 @ -----------------------------------------------------------------------------
+  Wortbirne Flag_inline|Flag_foldable_1, "shr" @ ( x -- x' ) @ Um eine Stelle rechts schieben
+@ -----------------------------------------------------------------------------
+  lsrs tos, #1
+  bx lr
+
+@ -----------------------------------------------------------------------------
+  Wortbirne Flag_inline|Flag_foldable_1, "shl" @ ( x -- x' ) @ Um eine Stelle links schieben
+@ -----------------------------------------------------------------------------
+  lsls tos, #1
+  bx lr
+
+@ -----------------------------------------------------------------------------
   Wortbirne Flag_inline|Flag_foldable_1, "ror" @ ( x -- x' ) @ Um eine Stelle rechts rotieren
 @ -----------------------------------------------------------------------------
   .ifdef m0core
@@ -134,109 +170,34 @@
   .endif
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_foldable_2|Flag_allocator, "arshift" @ ( x n -- x' )
-                            @ Shifts 'x' right by 'n' bits, shifting in x's MSB.
-@ -----------------------------------------------------------------------------
-  ldm psp!, {r0}
-  asrs r0, tos
-  movs tos, r0
-  bx lr
-
-  @ -----------------------------------------------------------------------------
-    push {lr}
-    pushdaconstw 0x4100 @ asrs r0, r0
-    pushdaconstw 0x1000 @ asrs r0, r0, #0
-
-    bl expect_two_elements
-
-    ldr r1, [r0, #offset_constant_tos] @ Ich weiß zwar noch nicht, ob es eine Konstante oder ein Register ist, aber das ist egal.
-    cmp r1, #31                        @ Falls es eine Konstante ist, kappe sie, wenn es ein Register sein sollte, ändert sich nichts.
-    bls 5f
-      movs r1, #31 @ Größere Schübe ? --> asrs mit Weite 31 generieren, damit das Vorzeichen stimmt !
-      str r1, [r0, #offset_constant_tos]
-      b.n 5f
-
-@ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_foldable_2|Flag_allocator, "rshift" @ ( x n -- x' )
+  Wortbirne Flag_inline|Flag_opcodierbar_Schieben, "rshift" @ ( x n -- x' )
                            @ Shifts 'x' right by 'n' bits.
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0}
   lsrs r0, tos
   movs tos, r0
   bx lr
-
-  @ -----------------------------------------------------------------------------
-    push {lr}
-    pushdaconstw 0x40C0 @ lsrs r0, r0
-    pushdaconstw 0x0800 @ lsrs r0, r0, #0
-    b.n 5f
+  .hword 0x0836 @ Opcode lsrs r6, r6, #0
+  movs tos, #0  @ Opcode if shift is > 31 places.
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_foldable_2|Flag_allocator, "lshift" @ ( x n -- x' )
+  Wortbirne Flag_inline|Flag_opcodierbar_Schieben, "arshift" @ ( x n -- x' )
+                            @ Shifts 'x' right by 'n' bits, shifting in x's MSB.
+@ -----------------------------------------------------------------------------
+  ldm psp!, {r0}
+  asrs r0, tos
+  movs tos, r0
+  bx lr
+  .hword 0x1036 @ Opcode asrs r6, r6, #0
+  asrs tos, #31 @ Opcode if shift is > 31 places.
+
+@ -----------------------------------------------------------------------------
+  Wortbirne Flag_inline|Flag_opcodierbar_Schieben, "lshift" @ ( x n -- x' )
                            @ Shifts 'x' left by 'n' bits.
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0}
   lsls r0, tos
   movs tos, r0
   bx lr
-
-  @ -----------------------------------------------------------------------------
-    push {lr}
-    pushdaconstw 0x4080 @ lsls r0, r0
-    pushdaconst  0x0000 @ lsls r0, r0, #0
-
-5:  bl expect_two_elements
-
-    ldr r1, [r0, #offset_state_tos]
-    cmp r1, #constant
-    beq 1f
-      @ TOS ist keine Konstante --> Also Register-Register-Schub. Es gibt nur Opcodes im M0, bei denen Quelle und Ziel identisch sind.
-      drop @ Vergiß den Shift-Immediate-Opcode
-      bl alloc_unkommutativ @ Kümmert sich um alles.
-      pop {pc}
-1:  @ TOS ist eine Konstante ! NOS muss jetzt ein Register sein, weil es sonst bereits vorher gefaltet worden wäre.
-
-    nip @ Vergiß den Shift-Register-Register-Opcode
-
-    @ Hole die Konstante !
-    ldr r1, [r0, #offset_constant_tos]
-    bl eliminiere_tos
-
-    cmp r1, #0 @ Gar nicht schieben ?
-    bne 3f
-      drop
-      pop {pc}
-3:
-
-    cmp r1, #31
-    bhi 2f
-      @ Konstante kleiner als 31 --> Schiebebefehl generieren.
-      lsls r1, #6  @ Shift places accordingly
-      orrs tos, r1  @ Build shift opcode
-
-      ldr r2, [r0, #offset_state_tos]
-      lsls r2, #3
-      orrs tos, r2
-
-      @ Registerwechsel in r6, wenn möglich - Schiebeopcode gibt das her
-      bl eliminiere_tos
-      bl befreie_tos
-      bl get_free_register
-      str r3, [r0, #offset_state_tos]
-      orrs tos, r3
-
-      bl hkomma
-      pop {pc}
-
-2:  @ Konstante größer als 31 --> Alles rausschieben.
-    drop @ Vergiß den zweiten Opcode auch
-    bl eliminiere_tos
-    bl befreie_tos
-    bl get_free_register
-    str r3, [r0, #offset_state_tos]
-
-    pushdaconstw 0x2000 @ movs r0, #0
-    lsls r3, #8
-    orrs tos, r3
-    bl hkomma
-    pop {pc}
+  .hword 0x0036 @ Opcode lsls r6, r6, #0
+  movs tos, #0  @ Opcode if shift is > 31 places.

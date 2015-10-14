@@ -42,6 +42,8 @@ ramallot ZweitFadenende, 4
 ramallot FlashFlags, 4
 ramallot VariablenPointer, 4
 
+.ifdef registerallocator
+
 @ Variablen für den Registerallokator
 
 ramallot state_r0, 4
@@ -73,6 +75,8 @@ ramallot sprungtrampolin, 4
 .equ offset_state_3os,    8 * 4
 .equ offset_constant_3os, 9 * 4
 .equ offset_sprungtrampolin, 10 * 4
+
+.endif
 
 @ Jetzt kommen Puffer und Stacks:  Buffers and Stacks
 
@@ -128,49 +132,102 @@ CoreDictionaryAnfang: @ Dictionary-Einsprungpunkt setzen
 @ Include the complete Mecrisp-Stellaris core
 @ -----------------------------------------------------------------------------
 
-  .include "../common/registerallocator.s"
-  .ltorg @ Mal wieder Konstanten schreiben
+  .ifdef registerallocator
+  .include "../common/ra/registerallocator.s"
+  .ltorg
+
+  .include "../common/ra/double.s"
+  .include "../common/ra/stackjugglers.s"
+  .include "../common/ra/logic.s"
+  .include "../common/ra/comparisions.s"
+  .ltorg
+  .include "../common/ra/memory.s"
+  .include "flash.s"
+  .ltorg
+
+  .ifdef emulated16bitflashwrites
+  .include "../common/hflashstoreemulation.s"
+  .ltorg
+  .endif
+
+  .ifdef flash16bytesblockwrite
+  .include "../common/flash16bytesblockwrite.s"
+  .ltorg
+  .endif
+
+  .include "../common/ra/calculations.s"
+  .include "terminal.s"
+  .include "../common/query.s"
+  .ltorg
+  .include "../common/strings.s"
+  .include "../common/deepinsight.s"
+  .ltorg
+  .include "../common/compiler.s"
+  .include "../common/compiler-flash.s"
+  .ltorg 
+  .include "../common/ra/controlstructures.s"
+  .ltorg
+  .include "../common/ra/doloop.s"
+  .include "../common/ra/case.s"
+  .include "../common/token.s"
+  .ltorg
+  .include "../common/numberstrings.s"
+  .ltorg
+  .include "../common/ra/interpreter.s"
+  .ltorg
+
+  .ifndef within_os
+  .include "../common/interrupts-common.s"
+  .include "interrupts.s" @ You have to change interrupt handlers for Porting !
+  .endif
+
+  .else
 
   .include "../common/double.s"
   .include "../common/stackjugglers.s"
   .include "../common/logic.s"
   .include "../common/comparisions.s"
-  .ltorg @ Mal wieder Konstanten schreiben
+  .ltorg
   .include "../common/memory.s"
   .include "flash.s"
-  .ltorg @ Mal wieder Konstanten schreiben
+  .ltorg
 
   .ifdef emulated16bitflashwrites
   .include "../common/hflashstoreemulation.s"
-  .ltorg @ Mal wieder Konstanten schreiben
+  .ltorg
   .endif
 
   .ifdef flash16bytesblockwrite
   .include "../common/flash16bytesblockwrite.s"
-  .ltorg @ Mal wieder Konstanten schreiben
+  .ltorg
   .endif
 
   .include "../common/calculations.s"
   .include "terminal.s"
   .include "../common/query.s"
-  .ltorg @ Mal wieder Konstanten schreiben
+  .ltorg
   .include "../common/strings.s"
   .include "../common/deepinsight.s"
-  .ltorg @ Mal wieder Konstanten schreiben
+  .ltorg
   .include "../common/compiler.s"
   .include "../common/compiler-flash.s"
   .include "../common/controlstructures.s"
-  .ltorg @ Mal wieder Konstanten schreiben
+  .ltorg
   .include "../common/doloop.s"
   .include "../common/case.s"
   .include "../common/token.s"
-  .ltorg @ Mal wieder Konstanten schreiben
+  .ltorg
   .include "../common/numberstrings.s"
-  .ltorg @ Mal wieder Konstanten schreiben
+  .ltorg
   .include "../common/interpreter.s"
-  .ltorg @ Mal wieder Konstanten schreiben
+  .ltorg
+
+  .ifndef within_os
   .include "../common/interrupts-common.s"
   .include "interrupts.s" @ You have to change interrupt handlers for Porting !
+  .endif
+
+  .endif
 
 @ -----------------------------------------------------------------------------
 @ Schließen der Dictionarystruktur und Zeiger ins Flash-Dictionary

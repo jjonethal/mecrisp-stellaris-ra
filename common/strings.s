@@ -31,7 +31,7 @@
   cmp \Register, #0x5B
   bhs 5f
   adds \Register, #0x20
-5:
+5:  
 .endm
 
   .else
@@ -45,7 +45,7 @@
   cmp \Register, #0x5B
   it lo
   addlo \Register, #0x20
-5:
+5:  
 .endm
 
   .endif
@@ -119,7 +119,7 @@ space:
   push {lr}
   cmp tos, #0
   ble 2f
-
+  
 1:bl space
   subs tos, #1
   bne 1b
@@ -139,7 +139,7 @@ holechar: @ ( -- Zeichen )
 @------------------------------------------------------------------------------
   push {lr}
   bl token        @ Fetch token
-  drop            @ Drop length
+  drop            @ Drop length  
   ldrb tos, [tos] @ Read character
   pop {pc}
 
@@ -292,7 +292,7 @@ type: @ ( str -- ) Gibt einen String aus  Print a counted string
 1: adds tos, #1    @ Adresse um eins erhöhen  Advance pointer
    dup
    ldrb tos, [tos] @ Zeichen holen            Put character on datastack
-   bl emit         @ Zeichen senden           Emit character
+   bl emit         @ Zeichen senden           Emit character     
    subs r0, #1     @ Ein Zeichen weniger      One character less
    bne 1b
 
@@ -322,5 +322,5 @@ stype_addr_r0_len_r1:
      adds r2, #1
      cmp r1, r2   @ Any characters left ?
      bne 1b
-
+     
 2: pop {pc}

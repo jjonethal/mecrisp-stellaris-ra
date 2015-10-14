@@ -13,22 +13,29 @@ This time, it contains an analytical compiler which keeps track
 of the top three stack elements and maps them to registers
 whenever possible.
 
-You can either flash the srec file to your Freedom board
-or make the thumbulator and type
-"thumbulator mecrisp-stellaris-kl25z128.bin".
+Two targets are available: 
+KL25Z128 (Cortex M0) and LM4F120 (Cortex M4).
+
+For M4, you can flash your Stellaris Launchpad with the included binary.
+
+For M0, you have two possibilities:
+
+  You can either flash the srec file to your Freedom board
+  or make the thumbulator and type
+  "thumbulator mecrisp-stellaris-kl25z128.bin".
 
 To dive in, you should load the disassembler and see
 definitions you have just compiled.
 
-Two examples:
+Two examples, on M0:
 
-: >gray ( u -- x ) dup 1 rshift xor ;  ok.
+: >gray ( u -- x ) dup 1 rshift xor ; \ For any cell size  ok.
   ok.
 see >gray
-00007CD0: B500  push { lr }
-00007CD2: 0873  lsrs r3 r6 #1
-00007CD4: 405E  eors r6 r3
-00007CD6: BD00  pop { pc }
+00007C48: B500  push { lr }
+00007C4A: 0873  lsrs r3 r6 #1
+00007C4C: 405E  eors r6 r3
+00007C4E: BD00  pop { pc }
  ok.
 
 
@@ -57,39 +64,26 @@ see >gray
   1-foldable ;  ok.
   ok.
 see bitexp
-00007BFE: B500  push { lr }
-00007C00: 2EF7  cmp r6 #F7
-00007C02: D801  bhi 00007C08
-00007C04: 2300  movs r3 #0
-00007C06: E001  b 00007C0C
-00007C08: 2300  movs r3 #0
-00007C0A: 43DB  mvns r3 r3
-00007C0C: 2B00  cmp r3 #0
-00007C0E: D002  beq 00007C16
-00007C10: 26F0  movs r6 #F0
-00007C12: 0636  lsls r6 r6 #18
-00007C14: E012  b 00007C3C
-00007C16: 2E10  cmp r6 #10
-00007C18: D802  bhi 00007C20
-00007C1A: 2300  movs r3 #0
-00007C1C: 43DB  mvns r3 r3
-00007C1E: E000  b 00007C22
-00007C20: 2300  movs r3 #0
-00007C22: 2B00  cmp r3 #0
-00007C24: D001  beq 00007C2A
-00007C26: 0876  lsrs r6 r6 #1
-00007C28: E008  b 00007C3C
-00007C2A: 0033  lsls r3 r6 #0
-00007C2C: 2007  movs r0 #7
-00007C2E: 4003  ands r3 r0
-00007C30: 2008  movs r0 #8
-00007C32: 4303  orrs r3 r0
-00007C34: 08F6  lsrs r6 r6 #3
-00007C36: 3E02  subs r6 #2
-00007C38: 40B3  lsls r3 r6
-00007C3A: 461E  mov r6 r3
-00007C3C: BD00  pop { pc }
- ok.
+00007B8E: B500  push { lr }
+00007B90: 2EF7  cmp r6 #F7
+00007B92: D902  bls 00007B9A
+00007B94: 26F0  movs r6 #F0
+00007B96: 0636  lsls r6 r6 #18
+00007B98: E00C  b 00007BB4
+00007B9A: 2E10  cmp r6 #10
+00007B9C: D801  bhi 00007BA2
+00007B9E: 0876  lsrs r6 r6 #1
+00007BA0: E008  b 00007BB4
+00007BA2: 0033  lsls r3 r6 #0
+00007BA4: 2007  movs r0 #7
+00007BA6: 4003  ands r3 r0
+00007BA8: 2008  movs r0 #8
+00007BAA: 4303  orrs r3 r0
+00007BAC: 08F6  lsrs r6 r6 #3
+00007BAE: 3E02  subs r6 #2
+00007BB0: 40B3  lsls r3 r6
+00007BB2: 461E  mov r6 r3
+00007BB4: BD00  pop { pc }
 
 Note that it compiles bitexp without any stack movements at all.
 

@@ -46,9 +46,9 @@
 
 @ Konstanten für die Größe und Aufteilung des Flash-Speichers
 
-.equ Kernschutzadresse,     0x00006000 @ Darunter wird niemals etwas geschrieben ! Mecrisp core never writes flash below this address.
-.equ FlashDictionaryAnfang, 0x00006000 @ 24 kb für den Kern reserviert...           24 kb Flash reserved for core.
-.equ FlashDictionaryEnde,   0x00020000 @ 104 kb Platz für das Flash-Dictionary     104 kb Flash available. Porting: Change this !
+.equ Kernschutzadresse,     0x00004000 @ Darunter wird niemals etwas geschrieben ! Mecrisp core never writes flash below this address.
+.equ FlashDictionaryAnfang, 0x00004000 @ 16 kb für den Kern reserviert...           16 kb Flash reserved for core.
+.equ FlashDictionaryEnde,   0x00020000 @ 112 kb Platz für das Flash-Dictionary     112 kb Flash available. Porting: Change this !
 .equ Backlinkgrenze,        RamAnfang  @ Ab dem Ram-Start.
 
 

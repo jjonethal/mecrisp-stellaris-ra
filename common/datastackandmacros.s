@@ -192,7 +192,8 @@ psp .req r7
 .equ Flag_foldable_6, Flag_visible | 0x0046
 .equ Flag_foldable_7, Flag_visible | 0x0047
 
-@ Opcodable Flags removed, as their logic has been replaced by the allocator.
+
+.ifdef registerallocator
 
 .equ Flag_buffer, Flag_visible | 0x0100
 .equ Flag_buffer_foldable, Flag_buffer|Flag_foldable
@@ -202,6 +203,32 @@ psp .req r7
 .equ Flag_allocator_Rechenlogik_unkommutativ, Flag_allocator|0x4000
 
 .equ Flag_Sprungschlucker, Flag_visible | 0x400
+
+.else
+
+.equ Flag_Sprungschlucker, 0 @ Deactivated, just to unify source code for both variants.
+
+.equ Flag_opcodable,  Flag_visible | 0x0008
+
+@ Of course, some of those cases are not foldable at all. But this way their bitmask is constructed.
+
+.equ Flag_opcodierbar_Plusminus,         Flag_foldable|Flag_opcodable|1
+.equ Flag_opcodierbar_Rechenlogik,       Flag_foldable|Flag_opcodable|2
+.equ Flag_opcodierbar_GleichUngleich,    Flag_foldable|Flag_opcodable|3
+.equ Flag_opcodierbar_Schieben,          Flag_foldable|Flag_opcodable|4
+.equ Flag_opcodierbar_Speicherschreiben, Flag_foldable|Flag_opcodable|5
+.equ Flag_opcodierbar_Spezialfall,       Flag_foldable|Flag_opcodable|0
+
+  .ifdef m0core @ No special handling of this on M0
+.equ Flag_opcodierbar_Rechenlogik_M3,    Flag_opcodierbar_Rechenlogik
+  .else         @ Additional optimisations only available on M3/M4
+.equ Flag_opcodierbar_Rechenlogik_M3,    Flag_foldable|Flag_opcodable|6
+  .endif
+
+.equ Flag_buffer, Flag_visible | 0x0100
+.equ Flag_buffer_foldable, Flag_buffer|Flag_foldable
+
+.endif
 
 @ -----------------------------------------------------------------------------
 @ Makros zum Bauen des Dictionary
@@ -296,13 +323,28 @@ psp .req r7
 8:      .p2align 1
 .endm
 
+
+.ifdef registerallocator
+
 .macro welcome Meldung
   bl dotgaensefuesschen
         .byte 8f - 7f         @ Compute length of name field.
-7:      .ascii "Mecrisp-Stellaris RA 0.3 experimental"
+7:      .ascii "Mecrisp-Stellaris RA 0.4 experimental"
         .ascii "\Meldung\n"
 8:      .p2align 1
 .endm
+
+.else
+
+.macro welcome Meldung
+  bl dotgaensefuesschen
+        .byte 8f - 7f         @ Compute length of name field.
+7:      .ascii "Mecrisp-Stellaris 2.1.4"
+        .ascii "\Meldung\n"
+8:      .p2align 1
+.endm
+
+.endif
 
 .macro Fehler_Quit Meldung
   bl dotgaensefuesschen

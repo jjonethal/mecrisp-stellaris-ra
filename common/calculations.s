@@ -20,260 +20,68 @@
 @ Small calculations
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_foldable_2|Flag_allocator, "+" @ ( x1 x2 -- x1+x2 )
+  Wortbirne Flag_inline|Flag_opcodierbar_Plusminus, "+" @ ( x1 x2 -- x1+x2 )
                       @ Adds x1 and x2.
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0}
   adds tos, r0
   bx lr
+  adds tos, r0 @ Opcode for use with literal in register
+  adds tos, #0 @ Opcode for use with byte literal
 
-plus_allocator:
-
-    push {lr}
-    bl expect_two_elements
-
-    pushdaconstw 0x3000 @ adds r0, #imm8
-    pushdaconstw 0x1800 @ adds r0, r0, r0
-
-    @ Ist in TOS oder in NOS eine kleine Konstante ?
-    ldr r1, [r0, #offset_state_nos]
-    cmp r1, #constant
-    bne 1f
-      bl swap_allocator @ Wenn NOS eine Konstante gewesen ist, war TOS es nicht (Vorherige Faltung !) und ich kann einfach umtauschen.
-      b.n 1f
+  .ifndef m0core @ Opcode with 12-bit encoded constant only available on M3/M4
+  .hword 0x0600
+  .hword 0xF116
+  .endif @ Opcode adds tos, tos, #imm12
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_foldable_2|Flag_allocator, "-" @ ( x1 x2 -- x1-x2 )
+  Wortbirne Flag_inline|Flag_opcodierbar_Plusminus, "-" @ ( x1 x2 -- x1-x2 )
                       @ Subtracts x2 from x1.
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0}
   subs tos, r0, tos
   bx lr
+  subs tos, r0 @ Opcode for use with literal in register
+  subs tos, #0 @ Opcode for use with byte literal
 
-    push {lr}
-    bl expect_two_elements
-
-    pushdaconstw 0x3800 @ subs r0, #imm8
-    pushdaconstw 0x1A00 @ subs r0, r0, r0
-
-1:  @ Minus ist nicht kommutativ, deswegen hier eine Optimierung weniger als bei Plus.
-
-
-    @ Jetzt sind mindestens zwei Element in den Registern, also TOS und NOS gefüllt.
-    @ Der Fall, dass beide Konstanten sind tritt nicht auf, weil er von der Faltung bereits erledigt wird.
-    @ Entweder zwei Register, oder eine Konstante und einen Register.
-
-    @ Ist jetzt TOS eine kleine Konstante ?
-
-    ldr r1, [r0, #offset_state_tos]
-    cmp r1, #constant
-    bne 3f
-      ldr r1, [r0, #offset_constant_tos]
-      cmp r1, #0xff
-      bhi 3f
-        drop @ Vergiß den Drei-Register-Opcode
-        @ writeln "Plusminus kleine Konstante"
-        bl nos_change_tos_away_later
-        @ TOS ist eine kleine Konstante.
-        orrs tos, r1
-        ldr r1, [r0, offset_state_nos] @ NOS dann der Faltung wegen unbedingt ein Register.
-        lsls r1, #8
-        orrs tos, r1
-        bl hkomma
-
-        bl eliminiere_tos
-        pop {pc}
-
-3:  @ TOS war keine kleine Konstante
-    nip @ Vergiß den Imm8-Opcode
-
-    @ Es ist egal, wierum die Quellregister liegen, da ich mir bei diesen Opcodes den Zielregister frei aussuchen kann.
-    @ Schritt eins: Die Konstante, falls TOS oder NOS eine sein sollten, laden.
-
-    bl expect_tos_in_register
-
-    @ Sollte jetzt NOS eine Konstante sein, so wird sie geladen.
-
-    ldr r2, [r0, #offset_state_nos]
-    cmp r2, #constant
-    bne 5f
-      ldr r3, [r0, #offset_constant_nos] @ Hole die Konstante ab
-      bl generiere_konstante
-      movs r2, r3
-
-5:  @ Beide Argumente sind jetzt in Registern.
-
-    @ Baue Quell- und "Ziel-" Register in den Opcode ein.
-
-    lsls r1, #6  @ Erster Operand ist um 6 Stellen geschoben
-    lsls r2, #3  @ Zweiter Operand ist um 3 Stellen geschoben
-
-    @ Baue jetzt den Opcode zusammen:
-
-    orrs tos, r1
-    orrs tos, r2
-
-    @ Vergiss die bisherige Registerzuordnung
-
-    bl eliminiere_tos
-    bl eliminiere_tos
-
-    @ Den Zielregister des Gesamtergebnis bestimmen, ganz komfortabel, und möglichst in r6:
-
-    bl befreie_tos
-    bl get_free_register
-    str r3, [r0, #offset_state_tos]
-
-    orrs tos, r3  @ Der Endzielregister ist gar nicht geschoben
-    bl hkomma
-
-    pop {pc}
-
+  .ifndef m0core @ Opcode with 12-bit encoded constant only available on M3/M4
+  .hword 0x0600
+  .hword 0xF1B6
+  .endif @ Opcode subs tos, tos, #imm12
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_foldable_1|Flag_inline|Flag_allocator, "1-" @ ( u -- u-1 )
+  Wortbirne Flag_foldable_1|Flag_inline, "1-" @ ( u -- u-1 )
                       @ Subtracts one from the cell on top of the stack.
 @ -----------------------------------------------------------------------------
   subs tos, #1
   bx lr
 
-allocator_one_minus:
-    pushdaconstw 0x1E00 + 1<<6
-
-chsmallplusminus:
-    push {lr}
-    bl expect_one_element @ Da nicht gefaltet worden ist, muss es sich um einen Register handeln.
-
-    ldr r1, [r0, #offset_state_tos]
-    lsls r1, #3
-    orrs tos, r1
-
-    @ Registerwechsel direkt im Opcode. Nutze das natürlich aus :-) Spare mir damit eventuelle Elementkopien.
-    bl eliminiere_tos
-
-    bl befreie_tos
-    bl get_free_register
-    str r3, [r0, #offset_state_tos]
-
-    orrs tos, r3  @ Der Endzielregister ist gar nicht geschoben
-    bl hkomma
-
-    pop {pc}
-
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_foldable_1|Flag_inline|Flag_allocator, "1+" @ ( u -- u+1 )
+  Wortbirne Flag_foldable_1|Flag_inline, "1+" @ ( u -- u+1 )
                        @ Adds one to the cell on top of the stack.
 @ -----------------------------------------------------------------------------
   adds tos, #1
   bx lr
 
-    pushdaconstw 0x1C00 + 1<<6
-    b.n chsmallplusminus
-
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_foldable_1|Flag_inline|Flag_allocator, "2-" @ ( u -- u-1 )
+  Wortbirne Flag_foldable_1|Flag_inline, "2-" @ ( u -- u-1 )
                       @ Subtracts two from the cell on top of the stack.
 @ -----------------------------------------------------------------------------
   subs tos, #2
   bx lr
 
-    pushdaconstw 0x1E00 + 2<<6
-    b.n chsmallplusminus
-
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_foldable_1|Flag_inline|Flag_allocator, "2+" @ ( u -- u+1 )
+  Wortbirne Flag_foldable_1|Flag_inline, "2+" @ ( u -- u+1 )
                        @ Adds two to the cell on top of the stack.
 @ -----------------------------------------------------------------------------
   adds tos, #2
   bx lr
-
-    pushdaconstw 0x1C00 + 2<<6
-    b.n chsmallplusminus
-
-@ -----------------------------------------------------------------------------
-  Wortbirne Flag_foldable_1|Flag_inline|Flag_allocator, "cell+" @ ( x -- x+4 )
-@ -----------------------------------------------------------------------------
-  adds tos, #4
-  bx lr
-
-    pushdaconstw 0x1C00 + 4<<6
-    b.n chsmallplusminus
 
 @ -----------------------------------------------------------------------------
   Wortbirne Flag_foldable_1|Flag_inline, "negate" @ ( n1 -- -n1 )
 @ -----------------------------------------------------------------------------
   rsbs tos, tos, #0
   bx lr
-
-    pushdaconstw 0x4240 @ rsbs r0, r0, #0
-
-smalltworegisters:
-    push {lr}
-    bl expect_one_element @ Da nicht gefaltet worden ist, muss es sich um einen Register handeln.
-    bl make_tos_changeable
-    ldr r1, [r0, #offset_state_tos]
-    orrs tos, r1
-    lsls r1, #3
-    orrs tos, r1
-    bl hkomma
-    pop {pc}
-
-@ -----------------------------------------------------------------------------
-  Wortbirne Flag_foldable_1|Flag_inline|Flag_allocator, "not" @ ( x -- ~x )
-@ -----------------------------------------------------------------------------
-  mvns tos, tos
-  bx lr
-
-allocator_not:
-    pushdaconstw 0x43C0 @ mvns r0, r0
-    b.n smalltworegisters
-
-@ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_foldable_1|Flag_allocator, "shr" @ ( x -- x' ) @ Um eine Stelle rechts schieben
-@ -----------------------------------------------------------------------------
-  lsrs tos, #1
-  bx lr
-
-    pushdaconstw 0x0840 @ lsrs r0, r0, #1
-    b.n smalltworegisters
-
-
-@ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_foldable_1|Flag_allocator, "shl" @ ( x -- x' ) @ Um eine Stelle links schieben
-@ -----------------------------------------------------------------------------
-  lsls tos, #1
-  bx lr
-
-    b.n 1f
-
-@ -----------------------------------------------------------------------------
-  Wortbirne Flag_foldable_1|Flag_inline|Flag_allocator, "2*" @ ( n -- n*2 )
-@ -----------------------------------------------------------------------------
-  lsls tos, #1
-  bx lr
-
-1:  pushdaconst 0x0040 @ lsls r0, r0, #1
-    b.n smalltworegisters
-
-@ -----------------------------------------------------------------------------
-  Wortbirne Flag_foldable_1|Flag_inline|Flag_allocator, "cells" @ ( x -- 4*x )
-@ -----------------------------------------------------------------------------
-  lsls tos, #2
-  bx lr
-
-    pushdaconst 0x0080 @ lsls r0, r0, #2
-    b.n smalltworegisters
-
-
-@ -----------------------------------------------------------------------------
-  Wortbirne Flag_foldable_1|Flag_inline|Flag_allocator, "2/" @ ( n -- n/2 )
-@ -----------------------------------------------------------------------------
-  asrs tos, #1
-  bx lr
-
-    pushdaconstw 0x1040 @ asrs r0, r0, #1
-    b.n smalltworegisters
-
 
 @ -----------------------------------------------------------------------------
   Wortbirne Flag_foldable_1|Flag_inline, "abs" @ ( n1 -- |n1| )
@@ -292,9 +100,9 @@ u_divmod:                            @ ARM provides no remainder operation, so w
   popda r1
   @ Catch divide by zero..
   cmp r1, #0
-  bne 1f          @ Alles ist Rest
+  bne 1f          @ Alles ist Rest                
     pushdaconst 0 @ Ergebnis Null
-    bx lr
+    bx lr    
 1:
 
   @ Shift left the denominator until it is greater than the numerator
@@ -304,7 +112,7 @@ u_divmod:                            @ ARM provides no remainder operation, so w
   bls 3f
   adds r1, #0    @ Don't shift if denominator would overflow
   bmi 3f
-
+	
 2:lsls r2, #1
   lsls r1, #1
   bmi 3f
@@ -429,13 +237,24 @@ divmod_plus_plus:
   .endif
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator_Rechenlogik_kommutativ, "*" @ ( u1|n1 u2|n2 -- u3|n3 )
+  Wortbirne Flag_inline|Flag_opcodierbar_Rechenlogik, "*" @ ( u1|n1 u2|n2 -- u3|n3 )
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0}    @ Get u1|n1 into a register.
   muls tos, r0      @ Multiply!
   bx lr
+  muls tos, r0      @ Opcode for use with literal in register
 
-  muls r0, r0
+@ -----------------------------------------------------------------------------
+  Wortbirne Flag_foldable_1|Flag_inline, "2*" @ ( n -- n*2 )
+@ -----------------------------------------------------------------------------
+  lsls tos, #1
+  bx lr
+
+@ -----------------------------------------------------------------------------
+  Wortbirne Flag_foldable_1|Flag_inline, "2/" @ ( n -- n/2 )
+@ -----------------------------------------------------------------------------
+  asrs tos, #1
+  bx lr
 
 @ -----------------------------------------------------------------------------
   Wortbirne Flag_foldable_1|Flag_inline, "even" @ ( x -- x' )
@@ -488,5 +307,3 @@ divmod_plus_plus:
   movs r1, #16
   str r1, [r0]
   bx lr
-
- .ltorg

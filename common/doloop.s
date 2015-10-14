@@ -18,57 +18,32 @@
 
 @ Die zählenden Schleifen
 @ Counting loops
-
+ 
 rloopindex .req r4
 rlooplimit .req r5
 
 @------------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator, "k" @ Kopiert den drittobersten Schleifenindex  Third loop index
+  Wortbirne Flag_inline, "k" @ Kopiert den drittobersten Schleifenindex  Third loop index
 @------------------------------------------------------------------------------
   @ Returnstack ( Limit Index Limit Index )
   pushdatos
   ldr tos, [sp, #8]
   bx lr
-@------------------------------------------------------------------------------
-  pushdaconstw 0x9802
-  b.n loop_j_allocator
 
 @------------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator, "j" @ Kopiert den zweitobersten Schleifenindex  Second loop index
+  Wortbirne Flag_inline, "j" @ Kopiert den zweitobersten Schleifenindex  Second loop index
 @------------------------------------------------------------------------------
   @ Returnstack ( Limit Index )
   pushdatos
   ldr tos, [sp]
   bx lr
-@------------------------------------------------------------------------------
-
-rfetch_allocator:
-  pushdaconstw 0x9800
-loop_j_allocator:
-  push {lr}
-  bl befreie_tos
-  bl get_free_register
-  str r3, [r0, #offset_state_tos]
-  lsls r3, #8
-  orrs tos, r3
-  bl hkomma
-  pop {pc}
 
 @------------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator, "i" @ Kopiert den obersten Schleifenindex       Innermost loop index
+  Wortbirne Flag_inline, "i" @ Kopiert den obersten Schleifenindex       Innermost loop index
 @------------------------------------------------------------------------------
   @ Returnstack ( )
   pushda rloopindex @ Ist immer im Register.
   bx lr
-@------------------------------------------------------------------------------
-  push {lr}
-  pushdaconstw 0x0020
-  bl befreie_tos
-  bl get_free_register
-  str r3, [r0, #offset_state_tos]
-  orrs tos, r3
-  bl hkomma
-  pop {pc}
 
 
 /* Ein paar Testfälle  Some tests
@@ -109,7 +84,7 @@ loop_j_allocator:
   @ Leave moves all elements of stack further, inserts address for jump opcode, increments counter and allots space.
 
   push {lr}
-
+  
   @ Agenda:
   @ An dieser Stelle eine Vorwärtssprunglücke präparieren:
   @ TOS bleibt TOS
@@ -126,13 +101,13 @@ loop_j_allocator:
 
 1:@ Lückenschiebeschleife
   ldr r2, [r3]  @ mov @r10, -2(r10)
-  subs r3, #4
+  subs r3, #4 
   str r2, [r3]
 @  adds r3, #4
 
   adds r3, #8
   cmp r3, r1 @ r1 enthält die Stelle am Ende
-  bne 1b
+  bne 1b 
 
   @ Muss jetzt die Stelle auf dem Stack, wo die Sprünge gezählt werden um Eins erhöhen
   @ und an der freigewordenen Stelle die Lückenadresse einfügen.
@@ -184,7 +159,7 @@ unloop:                           @ Remove loop structure from returnstack
   b.n strukturen_passen_nicht
 1:drop
 
-  push {lr}
+  push {lr} 
   pushdatos
   ldr tos, =struktur_plusloop
   bl inlinekomma  @ Inline the code needed for +loop
@@ -211,7 +186,7 @@ struktur_plusloop:
   adds rloopindex, #0x80000000  @ Index + $8000
   subs rloopindex, rlooplimit   @ Index + $8000 - Limit
 
-  adds rloopindex, tos         @ Index + $8000 - Limit + Schritt  Hier werden die Flags gesetzt. Überlauf bedeutet: Schleife beenden.
+  adds rloopindex, tos         @ Index + $8000 - Limit + Schritt  Hier werden die Flags gesetzt. Überlauf bedeutet: Schleife beenden.  
                                @ Flags are set here, Overflow means: Terminate loop.
   drop                         @ Runterwerfen, dabei Flags nicht verändern  Drop, but don't change Flags anymore.
 
@@ -233,7 +208,7 @@ struktur_plusloop:
   b.n strukturen_passen_nicht
 1:drop
 
-  push {lr}
+  push {lr} 
   pushdatos
   ldr tos, =struktur_loop
   bl inlinekomma  @ Inline the code needed for +loop
@@ -255,9 +230,9 @@ struktur_loop:
   adds rloopindex, #1          @ Index erhöhen           Increment Index
   cmp rloopindex, rlooplimit   @ Mit Limit vergleichen   Compare with Limit
   bx lr @ Ende für inline,   End marker for inline,
-
+  
 @------------------------------------------------------------------------------
-  Wortbirne Flag_immediate_compileonly|Flag_allocator, "do"
+  Wortbirne Flag_immediate_compileonly|Flag_opcodierbar_Spezialfall, "do" 
   @ Es wird benutzt mit ( Limit Index -- ).
   @ ( -- AlterLeavePointer 0 Sprungziel 3 )
 
@@ -279,8 +254,6 @@ do_rest_der_schleifenstruktur:
 
   bl branch_r    @ Schleifen-Rücksprung vorbereiten  Prepare loop jump back to the beginning
   pushdaconst 3  @ Strukturerkennung  Structure matching
-@  writeln "do-Struktur"
-@  bl hexdots
   pop {pc}
 
 @------------------------------------------------------------------------------
@@ -297,7 +270,7 @@ struktur_do:
 
 
 @------------------------------------------------------------------------------
-  Wortbirne Flag_immediate_compileonly|Flag_allocator, "?do"
+  Wortbirne Flag_immediate_compileonly|Flag_opcodierbar_Spezialfall, "?do" 
   @ Es wird benutzt mit ( Limit Index -- ).
   @ ( -- AlterLeavePointer Vorsprungadresse 1 Sprungziel 3 )
   @ Diese Schleife springt sofort ans Ende, wenn Limit=Index.
@@ -345,54 +318,32 @@ gemeinsame_schleifenoptimierung: @ This is a common part for opcoding optimized 
 @------------------------------------------------------------------------------
   push {lr}
 
-  bl expect_two_elements
-  bl tidyup_register_allocator_3os
-
+  @ Write Opcodes !
   pushdaconstw 0xB430 @ push {rloopindex, rlooplimit}
   bl hkomma
 
-  ldr r1, [r0, #offset_state_tos]
-  cmp r1, #constant
-  beq 1f
-    @ TOS, the Index, is in a Register.
-    pushdaconstw 0x0004
-    lsls r1, #3
-    orrs tos, r1
-    bl hkomma
-    b 2f
-1:  @ TOS is a constant.
-    pushdatos
-    ldr tos, [r0, #offset_constant_tos]
-    pushdaconst 4
+  pushdaconst 4 @ Register 4 = rloopindex
+  bl registerliteralkomma
+
+  subs r3, #1 @ One constant less
+  beq.n 1f
+
+    @ Second constant available
+    pushdaconst 5 @ Register 4 = rlooplimit
     bl registerliteralkomma
-2:
+    subs r3, #1 @ Another constant consumed
 
+    bl konstantenschreiben @ Maybe there are some more folding constants, then have to be written now.
+    pop {pc}
 
+1:@ No more constants available
 
-  ldr r1, [r0, #offset_state_nos]
-  cmp r1, #constant
-  beq 1f
-    @ NOS, the Limit, is in a Register.
-    pushdaconstw 0x0005
-    lsls r1, #3
-    orrs tos, r1
-    bl hkomma
-    b 2f
-1:  @ NOS is a constant.
-    pushdatos
-    ldr tos, [r0, #offset_constant_nos]
-    pushdaconst 5
-    bl registerliteralkomma
-2:
+  @ popda rlooplimit
+  pushdaconst  0x0035 
+  bl hkomma
+  pushdaconstw 0xCF40
+  bl hkomma
 
-  bl eliminiere_tos
-  bl eliminiere_tos
-
-  bl tidyup_register_allocator_tos @ TOS wieder in einen blitzeblanken Zustand versetzen !
-
-    @ writeln "Schleifenoptimierung fertig"
-    @ bl hexdots
+  bl konstantenschreiben @ Maybe there are some more folding constants, then have to be written now.
   pop {pc}
-
-  .ltorg
 

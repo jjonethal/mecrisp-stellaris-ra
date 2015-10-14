@@ -24,7 +24,7 @@
 @ -----------------------------------------------------------------------------
   push {lr}
   bl source             @ Save current source
-
+  
   @ 2>r
   ldm psp!, {r0}
   push {r0}
@@ -132,10 +132,8 @@ interpret:
     @ Nicht gefunden. Ein Fall für Number.
     @ Entry-Address is zero if not found ! Note that Flags have very special meanings in Mecrisp !
 
-    ldr r0, [psp] @ Den String für die not-found Meldung vermerken.
+    ldr r0, [psp]
     movs r1, tos
-
-    bl sprungschreiber_flaggenerator @ Wenn noch mehr Faltkonstanten kommen, müssen die Ergebnisse von Vergleichen vorher geschrieben werden.
 
     bl number
 
@@ -188,7 +186,7 @@ not_found_addr_r0_len_r1:
     bl 1b @ Interpretschleife fortsetzen.  Finished.
 
   @ Registerkarte:
-  @  r0: Stringadresse des Tokens, wird ab hier nicht mehr benötigt.
+  @  r0: Stringadresse des Tokens, wird ab hier nicht mehr benötigt.  
   @      Wird danach für die Zahl der benötigten Konstanten für die Faltung genutzt.
   @      From now on, this is number of constants that would be needed for folding this definition
   @  r1: Flags
@@ -200,16 +198,6 @@ not_found_addr_r0_len_r1:
 @ -----------------------------------------------------------------------------
 5:@ Im Kompilierzustand.  In compile state.
     ddrop
-
-    ldr r0, =Flag_Sprungschlucker & ~Flag_visible
-    ands r0, r1
-    bne.n .interpret_entsprungen
-      bl sprungschreiber_flaggenerator
-
-.interpret_entsprungen:
-    @ Jetzt dürfen keine Sprünge mehr im Sprungtrampolin warten, falls sie nicht vom Allokator später eingebaut werden.
-
-
 
     @ Prüfe das Ramallot-Flag, das automatisch 0-faltbar bedeutet:
     @ Ramallot-Words always are 0-foldable !
@@ -229,11 +217,19 @@ not_found_addr_r0_len_r1:
 
     @ Prüfe die Faltbarkeit des aktuellen Tokens:
     @ Check for foldability.
-
+    
     movs r0, #Flag_foldable & ~Flag_visible
     ands r0, r1 @ Flagfeld auf Faltbarkeit hin prüfen
-    beq.n .interpret_allocator @ Not foldable, but maybe the allocator can handle this.
+    beq.n .konstantenschleife
 
+      @ Check for opcodability.
+      movs r0, #Flag_opcodable & ~Flag_visible
+      ands r0, r1
+      beq.n .interpret_genugkonstanten @ Flag is set
+      cmp r3, #0 @ And at least one constant is available for folding.
+      beq.n .interpret_genugkonstanten
+        b.n .interpret_opcodierbar
+      
 .interpret_genugkonstanten: @ Not opcodable. Maybe foldable.
       @ Prüfe, ob genug Konstanten da sind:
       @ How many constants are necessary to fold this word ?
@@ -241,52 +237,20 @@ not_found_addr_r0_len_r1:
       ands r0, r1 @ Zahl der benötigten Konstanten maskieren
 
       cmp r3, r0
-      blo.n .interpret_allocator @ Not enough folding constants available, but maybe the allocator can handle this.
+      blo.n .konstantenschleife
 
 .interpret_faltoptimierung:
-        @ Do folding by running the definition.
+        @ Do folding by running the definition. 
         @ Note that Constant-Folding-Pointer is already set to keep track of results calculated.
         pushda r2 @ Einsprungadresse bereitlegen  Code entry point
         bl execute @ Durch Ausführung falten      Fold by executing
         b.n 1b @ Interpretschleife weitermachen     Finished.
 
+    @ No optimizations possible. Compile the normal way.
+    @ Write all folding constants left into dictionary.
 
-
-.interpret_allocator:
-
-  @ All foldable cases are finished now.
-
-  @ Flags of Definition in r1
-  @ Entry-Point of Definition in r2
-  @ Number of folding constants available in r3
-
-  ldr r0, =Flag_allocator & ~Flag_visible
-  ands r0, r1
-  beq.n .interpret_allocator_finished
-
-    bl nflush_faltkonstanten @ Jetzt werden die restlichen Faltkonstanten in den RA-Cache geschoben.
-    @ Dies kommt einem partiellen Konstantenschreiben gleich, wobei allerdings die drei obersten Stackelemente
-    @ TOS, NOS und 3OS im RA-Cache hängenbleiben. Dabei werden nur vielleicht Opcodes generiert, falls
-    @ der RA-Cache zu klein ist, alle zu fassen.
-
-    bl register_allocator @ Opcodieren und Optimieren
-
-    movs r0, psp  @ Keine Konstantenfaltung über den Allokator hinweg - sonst würde z.B. do/loop die Struktur nicht auf dem Stack lagern können.
-    str r0, [r4]  @ Vor dem Aufschwimmen lassen den Konstantenfaltungszeiger neu setzen.
-
-    bl nfaltkonstanten_aufschwimmen @ Sollten am Ende noch Faltkonstanten im Cache liegen, lasse sie aufschwimmen
-    b.n 1b @ Interpretschleife weitermachen     Finished.
-
-.interpret_allocator_finished:
-
-  @ No optimizations possible. Go back to canonical stack for classic compilation.
-  @ Write all folding constants left into dictionary.
-
-  bl nflush_faltkonstanten     @ Vorhandene Faltkonstanten, soweit möglich, erstmal in den Registerallokator laden.
-  bl tidyup_register_allocator @ Alle Registerbewegungen opcodieren
-
-  movs r5, #0   @ Konstantenfaltungszeiger löschen  Clear constant folding pointer.
-  str r5, [r4]
+.konstantenschleife:
+    bl konstantenschreiben
 
 @ -----------------------------------------------------------------------------
   @ Classic compilation.
@@ -302,17 +266,293 @@ not_found_addr_r0_len_r1:
 6:movs r2, #Flag_inline & ~Flag_visible
   ands r2, r1
   beq.n 7f
-
+  
   bl inlinekomma @ Direkt einfügen.        Inline the code
   b.n 1b @ Zurück in die Interpret-Schleife  Finished.
 
 7:bl callkomma @ Klassisch einkompilieren  Simply compile a BL or Call.
   b.n 1b @ Zurück in die Interpret-Schleife  Finished.
 
+
+@ -----------------------------------------------------------------------------
+.interpret_opcodierbar: @ Special case: Opcodable !
+
+  @ Flags of Definition in r1
+  @ Entry-Point of Definition in r2
+  @ Number of folding constants available in r3, at least one
+
+  @ Decide on the different cases. As I don't return, I can change Flag register freely.  
+  movs r0, #7 @ Mask for opcoding cases
+  ands r1, r0
+
+  @ Most opcodable cases have special opcodes at the end of the definition.
+  @ Prepare this place to be available in r0
+  movs r0, r2 @ Entry point
+  bl suchedefinitionsende @ Search for end of Definition
+
+  cmp r1, #1
+  bne.n .interpret_opcodierbar_rechenlogik
+    @------------------------------------------------------------------------------
+    @ Plus and Minus
+    @ Available as short Opcode on all Cores
+
+    cmp r3, #1
+    bne.n .interpret_faltoptimierung @ Opcode only with exactly one constant. Do folding with two constants or more in this case !
+    @ Exactly one constant.
+
+    @ Is constant small enough to fit in one Byte ?
+    movs r1, #0xFF  @ Mask for 8 Bits
+    ands r1, tos
+    cmp r1, tos
+    bne.n 2f
+    @ Equal ? Constant fits in 8 Bits.
+
+      ldrh r0, [r0, #2] @ Fetch Opcode, two more for Register-Opcode
+      orrs tos, r0 @ Put constant into Opcode
+      bl hkomma
+      b.n 1b @ Finished.
+      
+2:  
+
+    .ifndef m0core
+      @ M3/M4 cores offer additional opcodes with 12-bit encoded constants.
+      bl twelvebitencoding
+
+      cmp tos, #0
+      drop   @ Preserves Flags !
+      beq 3f
+        @ Encoding of constant within 12 bits is possible. Generate Opcode !
+        ldr r0, [r0, #4] @ Fetch 32-Bit-Opcode, this is possible without alignment here,
+                         @ Four more for M3/M4-Opcodes
+        orrs tos, r0
+        bl reversekomma
+        b.n 1b @ Finished.
+3:
+    .endif
+
+.interpret_opcodieren_ueber_r0:
+    @ Large constant without short encoding possibility. Put it in register first.
+    pushdaconst 0
+    bl registerliteralkomma
+
+    pushdatos
+    ldrh tos, [r0] @ Fetch Opcode
+    bl hkomma
+    b.n 1b @ Finished.
+
+
+.interpret_opcodierbar_rechenlogik:
+  cmp r1, #2
+  bne.n .interpret_opcodierbar_gleichungleich
+    @------------------------------------------------------------------------------
+    @ Calculus and Logic (Rechenlogik)
+    @ M0 only supports logic with register operands.
+
+    cmp r3, #1
+    bne.n .interpret_faltoptimierung @ Opcode only with exactly one constant. Do folding with two constants or more in this case !
+    @ Exactly one constant. M0 needs all constant sizes available in registers.
+    b.n .interpret_opcodieren_ueber_r0 @ Simply reuse code as for plus and minus.
+
+
+.interpret_opcodierbar_gleichungleich:
+  cmp r1, #3
+  bne.n .interpret_opcodierbar_schieben
+    @------------------------------------------------------------------------------
+    @ Equal and Unequal. 
+
+    cmp r3, #1
+    bne.n .interpret_faltoptimierung @ Opcode only with exactly one constant. Do folding with two constants or more in this case !
+    @ Exactly one constant.
+
+    @ Is constant small enough to fit in one Byte ?
+    movs r1, #0xFF  @ Mask for 8 Bits
+    ands r1, tos
+    cmp r1, tos
+    bne.n 2f
+    @ Equal ? Constant fits in 8 Bits.
+
+      ldr r1, =0x3E00 @ Opcode subs r6, #0
+      orrs tos, r1
+      bl hkomma
+
+4:    adds r2, #4 @ Skip first two instructions of definition
+      pushda r2
+      bl inlinekomma
+      b.n 1b @ Finished.
+ 
+2:  
+
+    .ifndef m0core
+      @ M3/M4 cores offer additional opcodes with 12-bit encoded constants.
+      bl twelvebitencoding
+
+      cmp tos, #0
+      drop   @ Preserves Flags !
+      beq 3f
+        @ Encoding of constant within 12 bits is possible.
+        ldr r1, =0xF1B60600 @ Opcode subs tos, tos, #imm12
+        orrs tos, r1
+        bl reversekomma
+        b.n 4b
+3:
+    .endif    
+
+    @ Larger constant. Put it in register first.
+    pushdaconst 0
+    bl registerliteralkomma
+
+    adds r2, #2 @ Skip first instruction of definition
+    pushda r2
+    bl inlinekomma
+    b.n 1b @ Finished.
+
+
+.interpret_opcodierbar_schieben:
+  cmp r1, #4
+  bne.n .interpret_opcodierbar_speicherschreiben
+    @------------------------------------------------------------------------------
+    @ Logical Shifts.
+
+    cmp r3, #1
+    bne.n .interpret_faltoptimierung @ Opcode only with exactly one constant. Do folding with two constants or more in this case !
+    @ Exactly one constant.
+
+    popda r3 @ Fetch constant
+    cmp r3, #0
+    bne.n 2f
+    b.n 1b @ Shift by zero ? No Opcode to generate. Finished !
+
+2:  movs r2, #0x1F @ 5 Bits
+    ands r2, r3
+    cmp r2, r3 @ Does shift fit in 5 Bits ?
+    beq.n 3f
+      @ Shift more than 31 Places - Zero out TOS or replace by an asrs tos, #31 opcode:
+      pushdatos
+      ldrh tos, [r0, #2] @ Fetch next opcode
+      bl hkomma
+      b.n 1b @ Finished.
+
+3:  pushdatos
+    ldrh tos, [r0] @ Fetch Opcode
+    lsls r3, #6  @ Shift places accordingly
+    orrs tos, r3  @ Build shift opcode
+    bl hkomma
+    b.n 1b @ Finished.
+
+
+.interpret_opcodierbar_speicherschreiben:
+  cmp r1, #5
+  bne.n .interpret_opcodierbar_andere
+    @------------------------------------------------------------------------------
+    @ Write memory
+
+    cmp r3, #1
+    bne.n 2f @ Exactly one constant
+
+    pushdaconst 0
+    bl registerliteralkomma
+
+    pushda r0
+    bl inlinekomma
+
+    @ Compile Drop-Opcode
+    pushdaconstw 0xcf40 @ Opcode for ldmia r7!, {r6}
+    bl hkomma
+    b.n 1b @ Finished.
+
+2:  @ Two or more constants.
+    pushdaconst 0
+    bl registerliteralkomma
+
+    pushdaconst 1
+    bl registerliteralkomma
+
+    bl suchedefinitionsende
+
+    pushda r0
+    bl inlinekomma
+    b.n 1b @ Finished.
+
+.interpret_opcodierbar_andere:
+
+  .ifndef m0core @ This is for M3/M4 only
+  @------------------------------------------------------------------------------
+  @ Check for architecture-specific special cases:
+
+  cmp r1, #6
+  bne.n 2f
+    @------------------------------------------------------------------------------
+    @ Logic with special opcodings available on M3/M4 only
+    cmp r3, #1
+    bne .interpret_faltoptimierung @ Opcode only with exactly one constant. Do folding with two constants or more in this case !
+
+    @ Check if constant available can be encoded as 12-bit-bitmask
+    bl twelvebitencoding
+
+    cmp tos, #0
+    drop   @ Preserves Flags !
+    beq .interpret_opcodieren_ueber_r0 @ Simply reuse code as for plus and minus.
+
+      @ 12-bit-encoding is possible. Generate the opcode :-)
+
+      ldr r0, [r0, #2] @ Fetch 32-Bit Thumb-2 Opcode, this can be done on M3/M4 without alignment
+                   @ Two more for the advanced M3-Opcode
+      orrs tos, r0
+      bl reversekomma
+      b.n 1b @ Finished.
+2:
+  .endif
+
+  @------------------------------------------------------------------------------
+  @ Special cases that do not have their own handling in interpret.
+  @ They have their own handlers at the end of definition that is called here.
+
+  adds r0, #1 @ One more for Thumb
+  blx r0
+  b.n 1b @ Finished.  
+
+
+@ -----------------------------------------------------------------------------
+konstantenschreiben: @ Special internal entry point with register dependencies.
+@ -----------------------------------------------------------------------------
+    push {lr}
+    cmp r3, #0   @ Null Konstanten liegen bereit ? Zero constants available ?
+    beq.n 7f     @ Dann ist nichts zu tun.         Nothing to write.
+
+.konstanteninnenschleife:
+    @ Schleife über r5 :-)
+    @ Loop for writing all folding constants left.
+    subs r3, #1 @ Weil Pick das oberste Element mit Null addressiert.
+
+    .ifdef m0core
+    pushdatos
+    lsls tos, r3, #2
+    ldr tos, [psp, tos]    
+    .else
+    pushda r3
+    ldr tos, [psp, tos, lsl #2] @ pick
+    .endif
+
+    bl literalkomma
+   
+    cmp r3, #0
+    bne.n .konstanteninnenschleife
+   
+    @ Die geschriebenen Konstanten herunterwerfen.
+    @ Drop constants written.
+    subs r5, #4  @ TOS wurde beim drauflegen der Konstanten gesichert.
+    movs psp, r5  @ Pointer zurückholen
+    drop         @ Das alte TOS aus seinem Platz auf dem Stack zurückholen.
+
+7:movs r5, #0   @ Konstantenfaltungszeiger löschen  Clear constant folding pointer.
+  str r5, [r4]
+  pop {pc}
+
+
 @------------------------------------------------------------------------------
   Wortbirne Flag_visible|Flag_variable, "hook-quit" @ ( -- addr )
   CoreVariable hook_quit
-@------------------------------------------------------------------------------
+@------------------------------------------------------------------------------  
   pushdatos
   ldr tos, =hook_quit
   bx lr
@@ -361,13 +601,11 @@ quit:
   @ movs r1, #0  @ Clear constant folding pointer
   str r1, [r0]
 
-  bl init_register_allocator
-
   ldr r0, =Pufferstand
   @ movs r1, #0  @ Set >IN to 0
   str r1, [r0]
 
-  ldr r0, =current_source
+  ldr r0, =current_source 
   @ movs r1, #0  @ Empty TIB is source
   str r1, [r0]
   ldr r1, =Eingabepuffer

@@ -591,10 +591,28 @@ register_allocator:                   @ Alle Konstanten sind in den RA-Cache ges
 
   @ -----------------------------------------------------------------------------
   cmp r1, #3
-  bne 1f
-    @ writeln "Allocator - Rechenlogik kommutativ generell"
-alloc_kommutativ_intern:
-    bl expect_two_elements
+  beq alloc_kommutativ_ohneregister
+  @ -----------------------------------------------------------------------------
+  cmp r1, #4
+  beq alloc_unkommutativ_ohneregister
+  @ -----------------------------------------------------------------------------
+    drop @ Den schon geholten Opcode wieder vergessen - wir brauchen ihn hier nicht...
+    adds r2, #1 @ One more for Thumb
+    blx r2
+
+    pop {r0, r1, r2, r3, pc}
+
+
+
+@ Sondereinsprünge, die für Memory Read-Modify-Write und die Schiebebefehle gebraucht werden.
+
+@ -----------------------------------------------------------------------------
+alloc_kommutativ:
+@ -----------------------------------------------------------------------------
+  push {r0, r1, r2, r3, lr}
+alloc_kommutativ_ohneregister:
+
+      bl expect_two_elements
 
     @ Jetzt sind mindestens zwei Element in den Registern, also TOS und NOS gefüllt.
     @ Der Fall, dass beide Konstanten sind tritt nicht auf, weil er von der Faltung bereits erledigt wird.
@@ -618,6 +636,47 @@ alloc_kommutativ_intern:
       bl swap_allocator   @ Ab jetzt ist es TOS !
 3:
 
+    .ifndef m0core
+      ldr r1, [r0, #offset_state_tos] @ Prüfe, ob TOS eine Konstante ist.
+      cmp r1, #constant
+      bne 6f
+        @ TOS ist eine Konstante.
+        pushdatos
+        ldr tos, [r0, #offset_constant_tos]
+        bl twelvebitencoding @ Hole sie und prüfe, ob sie als Imm12 darstellbar ist.
+        ldmia psp!, {r1} @ Entweder die Bitmaske oder wieder die Konstante
+
+        cmp tos, #0
+        drop   @ Preserves Flags !
+        beq 6f
+          @ Die Konstante lässt sich als Imm12 darstellen - fein ! Bitmaske liegt in r1 bereit
+          @ Prüfe nun den Opcode, und ersetze ihn, falls möglich.
+
+
+          cmp tos, #0x4000 @ ands r0, r0 Opcode
+          bne 5f
+            ldr tos, =0xF0100000 @ ands r0, r0, #Imm12
+            b.n m3_opcodieren
+5:
+
+          ldr r2, =0x4040 @ eors r0, r0      Opcode
+          cmp tos, r2
+          bne 5f
+            ldr tos, =0xF0900000 @ eors r0, r0, #Imm12
+            b.n m3_opcodieren
+5:
+
+
+          cmp tos, #0x4300 @ orrs r0, r0      Opcode
+          bne 5f
+            ldr tos, =0xF0500000 @ orrs r0, r0, #Imm12
+            b.n m3_opcodieren
+5:
+
+
+
+6:    @ Sonderopcodierungen M3/M4 nicht möglich
+    .endif
 
     @ Sorge dafür, dass NOS bereit zum Verändern wird.
     bl nos_change_tos_away_later
@@ -637,20 +696,72 @@ alloc_kommutativ_intern:
     bl eliminiere_tos
     pop {r0, r1, r2, r3, pc}
 
+.ifndef m0core
 
-1:
+m3_opcodieren_anderswo:
+  push {r0, r1, r2, r3, lr}
+@ -----------------------------------------------------------------------------
+m3_opcodieren:
+@ -----------------------------------------------------------------------------
+          @ Gemeinsamer Teil für alle Fälle:
+          orrs tos, r1 @ Bitmaske für Imm12 hinzufügen
 
-  @ -----------------------------------------------------------------------------
-  cmp r1, #4
-  bne 1f
-    @ writeln "Allocator - Rechenlogik nicht kommutativ generell"
-alloc_unkommutativ_intern:
+          ldr r1, [r0, offset_state_nos] @ NOS dann der Faltung wegen unbedingt ein Register.
 
+          orrs tos, tos, r1, lsl #16 @ Quellregister hinzufügen
+
+          @ Vergiß die Konstante
+          bl eliminiere_tos
+
+          @ Registerwechsel direkt im Opcode. Nutze das natürlich aus :-) Spare mir damit eventuelle Elementkopien.
+          bl eliminiere_tos
+
+          bl befreie_tos
+          bl get_free_register
+          str r3, [r0, #offset_state_tos]
+
+          orrs tos, tos, r3, lsl #8  @ Den Zielregister hinzufügen
+
+          bl reversekomma
+          pop {r0, r1, r2, r3, pc}
+.endif
+
+@ -----------------------------------------------------------------------------
+alloc_unkommutativ:
+@ -----------------------------------------------------------------------------
+  push {r0, r1, r2, r3, lr}
+alloc_unkommutativ_ohneregister:
     bl expect_two_elements
 
     @ Jetzt sind mindestens zwei Element in den Registern, also TOS und NOS gefüllt.
     @ Der Fall, dass beide Konstanten sind tritt nicht auf, weil er von der Faltung bereits erledigt wird.
     @ Entweder zwei Register, oder eine Konstante und einen Register.
+
+    .ifndef m0core
+      ldr r1, [r0, #offset_state_tos] @ Prüfe, ob TOS eine Konstante ist.
+      cmp r1, #constant
+      bne 6f
+        @ TOS ist eine Konstante.
+        pushdatos
+        ldr tos, [r0, #offset_constant_tos]
+        bl twelvebitencoding @ Hole sie und prüfe, ob sie als Imm12 darstellbar ist.
+        ldmia psp!, {r1} @ Entweder die Bitmaske oder wieder die Konstante
+
+        cmp tos, #0
+        drop   @ Preserves Flags !
+        beq 6f
+          @ Die Konstante lässt sich als Imm12 darstellen - fein ! Bitmaske liegt in r1 bereit
+          @ Prüfe nun den Opcode, und ersetze ihn, falls möglich.
+
+          ldr r2, =0x4380 @ bics r0, r0      Opcode
+          cmp tos, r2
+          bne 6f
+            @ Ja, den Opcode kann ich verlängern und dann einfügen !
+            ldr tos, =0xF0300000 @ bics r0, r0, #Imm12
+            b.n m3_opcodieren
+
+6:    @ Sonderopcodierungen M3/M4 nicht möglich
+    .endif
 
     @ Sorge dafür, dass NOS bereit zum Verändern wird.
     bl nos_change_tos_away_later
@@ -673,8 +784,6 @@ alloc_unkommutativ_intern:
 
 5:  @ Beide Argumente sind jetzt in Registern.
 
-
-
     lsls r1, #3  @ Quellregister ist um 3 Stellen geschoben
 
     @ Baue jetzt den Opcode zusammen:
@@ -686,30 +795,6 @@ alloc_unkommutativ_intern:
 
     bl eliminiere_tos
     pop {r0, r1, r2, r3, pc}
-
-
-1:
-
-  @ -----------------------------------------------------------------------------
-  @ writeln "Allocator General-Spezialfall"
-
-    drop @ Den schon geholten Opcode wieder vergessen - wir brauchen ihn hier nicht...
-    adds r2, #1 @ One more for Thumb
-    blx r2
-
-    pop {r0, r1, r2, r3, pc}
-
-
-
-@ Sondereinsprünge, die für Memory Read-Modify-Write und die Schiebebefehle gebraucht werden.
-
-alloc_kommutativ:
-  push {r0, r1, r2, r3, lr}
-  b.n alloc_kommutativ_intern
-
-alloc_unkommutativ:
-  push {r0, r1, r2, r3, lr}
-  b.n alloc_unkommutativ_intern
 
   .ltorg
 

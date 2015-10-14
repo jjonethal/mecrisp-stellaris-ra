@@ -1,0 +1,21 @@
+#!/bin/bash
+
+cd kl25z128
+make clean all
+md5sum *.bin
+cd ..
+
+cd kl25z128-ra
+make clean all
+md5sum *.bin
+cd ..
+ 
+cd lm4f120
+make clean all
+md5sum *.bin
+cd ..
+
+cd lm4f120-ra
+make clean all
+md5sum *.bin
+cd ..

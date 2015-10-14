@@ -19,6 +19,7 @@
 @ Speicherzugriffe aller Art
 @ Memory access
 
+
 @------------------------------------------------------------------------------
   Wortbirne Flag_visible, "move"  @ Move some bytes around. This can cope with overlapping memory areas.
 move:  @ ( Quelladdr Zieladdr Byteanzahl -- ) ( Source Destination Count -- )
@@ -64,7 +65,7 @@ move:  @ ( Quelladdr Zieladdr Byteanzahl -- ) ( Source Destination Count -- )
   Wortbirne Flag_visible, "fill"  @ Fill memory with given byte.
   @ ( Destination Count Filling -- )
 @------------------------------------------------------------------------------
-  @ 6.1.1540 FILL CORE ( c-addr u char -- ) If u is greater than zero, store char in each of u consecutive characters of memory beginning at c-addr.
+  @ 6.1.1540 FILL CORE ( c-addr u char -- ) If u is greater than zero, store char in each of u consecutive characters of memory beginning at c-addr. 
 
   popda r0 @ Filling byte
   popda r1 @ Count
@@ -81,50 +82,14 @@ move:  @ ( Quelladdr Zieladdr Byteanzahl -- ) ( Source Destination Count -- )
   bx lr
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator, "@" @ ( 32-addr -- x )
+  Wortbirne Flag_inline, "@" @ ( 32-addr -- x )
                               @ Loads the cell at 'addr'.
 @ -----------------------------------------------------------------------------
   ldr tos, [tos]
   bx lr
 
-allocator_4fetch:
-    push {lr}
-    bl expect_one_element
-    pushdaconstw 0x6800 @ ldr r0, [r0, #0] Opcode
-
-    @ Sollte TOS gerade eine Konstante sein, generiere sie so gut es geht.
-    ldr r3, [r0, #offset_state_tos]
-    cmp r3, #constant
-    bne 2f
-      ldr r3, [r0, #offset_constant_tos]
-
-      @ Die fünf Bits, die in den LDR-Opcode passen, werden nun direkt dort eingepflegt.
-      movs r1, 0x7C @ %1111100
-      ands r1, r3   @ Bits herausholen
-      lsls r1, #4
-      orrs tos, r1
-
-      movs r1, 0x7C @ %1111100
-      bics r3, r1
-
-      bl generiere_adresskonstante
-
-2:  @ r3 sagt nun in jedem Fall, in welchem Register die Adresse zum Laden bereitliegt.
-    lsls r3, #3
-    orrs tos, r3
-
-    @ Elementkopien umschiffen - das Ladeergebnis benötigt auf jeden Fall einen frischen Register:
-    bl eliminiere_tos
-    bl befreie_tos
-    bl get_free_register
-    str r3, [r0, #offset_state_tos]
-
-    orrs tos, r3  @ Der Endzielregister ist gar nicht geschoben
-    bl hkomma
-    pop {pc}
-
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator, "!" @ ( x 32-addr -- )
+  Wortbirne Flag_inline|Flag_opcodierbar_Speicherschreiben, "!" @ ( x 32-addr -- )
 @ Given a value 'x' and a cell-aligned address 'addr', stores 'x' to memory at 'addr', consuming both.
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0, r1} @ X is the new TOS after the store completes.
@@ -132,49 +97,16 @@ allocator_4fetch:
   movs tos, r1
   bx lr
 
-allocator_4store:
-    push {lr}
-    bl expect_two_elements
-    pushdaconstw 0x6000 @ str r0, [r0, #0] Opcode
+  @ For opcoding with one constant
+  str tos, [r0]
+  bx lr
 
-    @ Sollte TOS gerade eine Konstante sein, generiere sie so gut es geht.
-    ldr r3, [r0, #offset_state_tos]
-    cmp r3, #constant
-    bne 2f
-      ldr r3, [r0, #offset_constant_tos]
-
-      @ Die fünf Bits, die in den STR-Opcode passen, werden nun direkt dort eingepflegt.
-      movs r1, 0x7C @ %1111100
-      ands r1, r3   @ Bits herausholen
-      lsls r1, #4
-      orrs tos, r1
-
-      movs r1, 0x7C @ %1111100
-      bics r3, r1
-
-      bl generiere_adresskonstante
-
-2:  @ r3 sagt nun in jedem Fall, in welchem Register die Adresse zum Schreiben bereitliegt.
-    lsls r3, #3
-    orrs tos, r3
-
-
-    @ Sollte NOS gerade eine Konstante sein, generiere sie so gut es geht.
-    ldr r3, [r0, #offset_state_nos]
-    cmp r3, #constant
-    bne 3f
-      ldr r3, [r0, #offset_constant_nos]
-      bl generiere_konstante
-3:  @ r3 sagt nun in jedem Fall, in welchem Register der Inhalt zum Schreiben bereitliegt.
-    orrs tos, r3
-    bl hkomma
-
-    bl eliminiere_tos
-    bl eliminiere_tos
-    pop {pc}
+  @ For opcoding with two constants
+  str r1, [r0]
+  bx lr
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator, "+!" @ ( x 32-addr -- )
+  Wortbirne Flag_inline|Flag_opcodierbar_Speicherschreiben, "+!" @ ( x 32-addr -- )
                                @ Adds 'x' to the memory cell at 'addr'.
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0, r1} @ X is the new TOS after the store completes.
@@ -184,72 +116,28 @@ allocator_4store:
   movs tos, r1
   bx lr
 
-    push {lr}
-      bl expect_two_elements
-      bl dup_allocator
-      bl allocator_4fetch
-      bl rot_allocator
-      bl plus_allocator
-      bl swap_allocator
-      bl allocator_4store
-    pop {pc}
+  @ For opcoding with one constant
+  ldr r2, [r0]
+  adds r2, tos
+  str r2, [r0]
+  bx lr
 
-  @  Idea behind this snipplet code: Try to compile this through the allocator.
-  @
-  @  : +! ( x addr )
-  @    dup ( x addr addr )
-  @    @ ( x addr inhalt )
-  @    rot ( addr inhalt x )
-  @    + ( addr inhalt* )
-  @    swap ( inhalt* addr )
-  @    !
-  @  ;
+  @ For opcoding with two constants
+  ldr r2, [r0]
+  adds r2, r1
+  str r2, [r0]
+  bx lr
+
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator, "h@" @ ( 16-addr -- x )
+  Wortbirne Flag_inline, "h@" @ ( 16-addr -- x )
                               @ Loads the half-word at 'addr'.
 @ -----------------------------------------------------------------------------
   ldrh tos, [tos]
   bx lr
 
-allocator_2fetch:
-    push {lr}
-    bl expect_one_element
-    pushdaconstw 0x8800 @ ldrh r0, [r0, #0] Opcode
-
-    @ Sollte TOS gerade eine Konstante sein, generiere sie so gut es geht.
-    ldr r3, [r0, #offset_state_tos]
-    cmp r3, #constant
-    bne 2f
-      ldr r3, [r0, #offset_constant_tos]
-
-      @ Die fünf Bits, die in den LDRH-Opcode passen, werden nun direkt dort eingepflegt.
-      movs r1, 0x3E @ %1111100
-      ands r1, r3   @ Bits herausholen
-      lsls r1, #5
-      orrs tos, r1
-
-      movs r1, 0x3E @ %1111100
-      bics r3, r1
-
-      bl generiere_adresskonstante
-
-2:  @ r3 sagt nun in jedem Fall, in welchem Register die Adresse zum Laden bereitliegt.
-    lsls r3, #3
-    orrs tos, r3
-
-    @ Elementkopien umschiffen - das Ladeergebnis benötigt auf jeden Fall einen frischen Register:
-    bl eliminiere_tos
-    bl befreie_tos
-    bl get_free_register
-    str r3, [r0, #offset_state_tos]
-
-    orrs tos, r3  @ Der Endzielregister ist gar nicht geschoben
-    bl hkomma
-    pop {pc}
-
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator, "h!" @ ( x 16-addr -- )
+  Wortbirne Flag_inline|Flag_opcodierbar_Speicherschreiben, "h!" @ ( x 16-addr -- )
 @ Given a value 'x' and an 16-bit-aligned address 'addr', stores 'x' to memory at 'addr', consuming both.
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0, r1} @ X is the new TOS after the store completes.
@@ -257,50 +145,16 @@ allocator_2fetch:
   movs tos, r1
   bx lr
 
-allocator_2store:
-    push {lr}
-    bl expect_two_elements
-    pushdaconstw 0x8000 @ strh r0, [r0, #0] Opcode
+  @ For opcoding with one constant
+  strh tos, [r0]
+  bx lr
 
-    @ Sollte TOS gerade eine Konstante sein, generiere sie so gut es geht.
-    ldr r3, [r0, #offset_state_tos]
-    cmp r3, #constant
-    bne 2f
-      ldr r3, [r0, #offset_constant_tos]
-
-      @ Die fünf Bits, die in den STRH-Opcode passen, werden nun direkt dort eingepflegt.
-      movs r1, 0x3E @ %1111100
-      ands r1, r3   @ Bits herausholen
-      lsls r1, #5
-      orrs tos, r1
-
-      movs r1, 0x3E @ %1111100
-      bics r3, r1
-
-      bl generiere_adresskonstante
-
-2:  @ r3 sagt nun in jedem Fall, in welchem Register die Adresse zum Schreiben bereitliegt.
-    lsls r3, #3
-    orrs tos, r3
-
-
-    @ Sollte NOS gerade eine Konstante sein, generiere sie so gut es geht.
-    ldr r3, [r0, #offset_state_nos]
-    cmp r3, #constant
-    bne 3f
-      ldr r3, [r0, #offset_constant_nos]
-      bl generiere_konstante
-3:  @ r3 sagt nun in jedem Fall, in welchem Register der Inhalt zum Schreiben bereitliegt.
-    orrs tos, r3
-    bl hkomma
-
-    bl eliminiere_tos
-    bl eliminiere_tos
-    pop {pc}
-
+  @ For opcoding with two constants
+  strh r1, [r0]
+  bx lr
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator, "h+!" @ ( x 16-addr -- )
+  Wortbirne Flag_inline|Flag_opcodierbar_Speicherschreiben, "h+!" @ ( x 16-addr -- )
                                 @ Adds 'x' to the memory cell at 'addr'.
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0, r1} @ X is the new TOS after the store completes.
@@ -310,62 +164,27 @@ allocator_2store:
   movs tos, r1
   bx lr
 
-    push {lr}
-      bl expect_two_elements
-      bl dup_allocator
-      bl allocator_2fetch
-      bl rot_allocator
-      bl plus_allocator
-      bl swap_allocator
-      bl allocator_2store
-    pop {pc}
+  @ For opcoding with one constant
+  ldrh r2, [r0]
+  adds r2, tos
+  strh r2, [r0]
+  bx lr
 
+  @ For opcoding with two constants
+  ldrh r2, [r0]
+  adds r2, r1
+  strh r2, [r0]
+  bx lr
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator, "c@" @ ( 8-addr -- x )
+  Wortbirne Flag_inline, "c@" @ ( 8-addr -- x )
                               @ Loads the byte at 'addr'.
 @ -----------------------------------------------------------------------------
   ldrb tos, [tos]
   bx lr
 
-allocator_1fetch:
-    push {lr}
-    bl expect_one_element
-    pushdaconstw 0x7800 @ ldrb r0, [r0, #0] Opcode
-
-    @ Sollte TOS gerade eine Konstante sein, generiere sie so gut es geht.
-    ldr r3, [r0, #offset_state_tos]
-    cmp r3, #constant
-    bne 2f
-      ldr r3, [r0, #offset_constant_tos]
-
-      @ Die fünf Bits, die in den LDRB-Opcode passen, werden nun direkt dort eingepflegt.
-      movs r1, 0x1F @ %111110
-      ands r1, r3   @ Bits herausholen
-      lsls r1, #6
-      orrs tos, r1
-
-      movs r1, 0x1F @ %111110
-      bics r3, r1
-
-      bl generiere_adresskonstante
-
-2:  @ r3 sagt nun in jedem Fall, in welchem Register die Adresse zum Laden bereitliegt.
-    lsls r3, #3
-    orrs tos, r3
-
-    @ Elementkopien umschiffen - das Ladeergebnis benötigt auf jeden Fall einen frischen Register:
-    bl eliminiere_tos
-    bl befreie_tos
-    bl get_free_register
-    str r3, [r0, #offset_state_tos]
-
-    orrs tos, r3  @ Der Endzielregister ist gar nicht geschoben
-    bl hkomma
-    pop {pc}
-
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator, "c!" @ ( x 8-addr -- )
+  Wortbirne Flag_inline|Flag_opcodierbar_Speicherschreiben, "c!" @ ( x 8-addr -- )
 @ Given a value 'x' and an 8-bit-aligned address 'addr', stores 'x' to memory at 'addr', consuming both.
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0, r1} @ X is the new TOS after the store completes.
@@ -373,49 +192,16 @@ allocator_1fetch:
   movs tos, r1
   bx lr
 
-allocator_1store:
-    push {lr}
-    bl expect_two_elements
-    pushdaconstw 0x7000 @ strb r0, [r0, #0] Opcode
+  @ For opcoding with one constant
+  strb tos, [r0]
+  bx lr
 
-    @ Sollte TOS gerade eine Konstante sein, generiere sie so gut es geht.
-    ldr r3, [r0, #offset_state_tos]
-    cmp r3, #constant
-    bne 2f
-      ldr r3, [r0, #offset_constant_tos]
-
-      @ Die fünf Bits, die in den STRB-Opcode passen, werden nun direkt dort eingepflegt.
-      movs r1, 0x1F @ %111110
-      ands r1, r3   @ Bits herausholen
-      lsls r1, #6
-      orrs tos, r1
-
-      movs r1, 0x1F @ %111110
-      bics r3, r1
-
-      bl generiere_adresskonstante
-
-2:  @ r3 sagt nun in jedem Fall, in welchem Register die Adresse zum Schreiben bereitliegt.
-    lsls r3, #3
-    orrs tos, r3
-
-
-    @ Sollte NOS gerade eine Konstante sein, generiere sie so gut es geht.
-    ldr r3, [r0, #offset_state_nos]
-    cmp r3, #constant
-    bne 3f
-      ldr r3, [r0, #offset_constant_nos]
-      bl generiere_konstante
-3:  @ r3 sagt nun in jedem Fall, in welchem Register der Inhalt zum Schreiben bereitliegt.
-    orrs tos, r3
-    bl hkomma
-
-    bl eliminiere_tos
-    bl eliminiere_tos
-    pop {pc}
+  @ For opcoding with two constants
+  strb r1, [r0]
+  bx lr
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator, "c+!" @ ( x 8-addr -- )
+  Wortbirne Flag_inline|Flag_opcodierbar_Speicherschreiben, "c+!" @ ( x 8-addr -- )
                                @ Adds 'x' to the memory cell at 'addr'.
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0, r1} @ X is the new TOS after the store completes.
@@ -425,20 +211,20 @@ allocator_1store:
   movs tos, r1
   bx lr
 
-    push {lr}
-      bl expect_two_elements
-      bl dup_allocator
-      bl allocator_1fetch
-      bl rot_allocator
-      bl plus_allocator
-      bl swap_allocator
-      bl allocator_1store
-    pop {pc}
+  @ For opcoding with one constant
+  ldrb r2, [r0]
+  adds r2, tos
+  strb r2, [r0]
+  bx lr
 
-  .ltorg
+  @ For opcoding with two constants
+  ldrb r2, [r0]
+  adds r2, r1
+  strb r2, [r0]
+  bx lr
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator, "bis!" @ ( x 32-addr -- )  Set bits
+  Wortbirne Flag_inline|Flag_opcodierbar_Speicherschreiben, "bis!" @ ( x 32-addr -- )  Set bits
   @ Setzt die Bits in der Speicherstelle
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0, r1} @ X is the new TOS after the store completes.
@@ -448,19 +234,20 @@ allocator_1store:
   movs tos, r1
   bx lr
 
-    push {lr}
-      bl expect_two_elements
-      bl dup_allocator
-      bl allocator_4fetch
-      bl rot_allocator
-      pushdaconstw 0x4300 @ orrs r0, r0      Opcode
-      bl alloc_kommutativ
-      bl swap_allocator
-      bl allocator_4store
-    pop {pc}
+  @ For opcoding with one constant
+  ldr  r2, [r0]
+  orrs r2, tos
+  str  r2, [r0]
+  bx lr
+
+  @ For opcoding with two constants
+  ldr  r2, [r0]
+  orrs r2, r1
+  str  r2, [r0]
+  bx lr
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator, "bic!" @ ( x 32-addr -- )  Clear bits
+  Wortbirne Flag_inline|Flag_opcodierbar_Speicherschreiben, "bic!" @ ( x 32-addr -- )  Clear bits
   @ Löscht die Bits in der Speicherstelle
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0, r1} @ X is the new TOS after the store completes.
@@ -470,19 +257,20 @@ allocator_1store:
   movs tos, r1
   bx lr
 
-    push {lr}
-      bl expect_two_elements
-      bl dup_allocator
-      bl allocator_4fetch
-      bl rot_allocator
-      pushdaconstw 0x4380 @ bics r0, r0      Opcode
-      bl alloc_unkommutativ
-      bl swap_allocator
-      bl allocator_4store
-    pop {pc}
+  @ For opcoding with one constant
+  ldr  r2, [r0]
+  bics r2, tos
+  str  r2, [r0]
+  bx lr
+
+  @ For opcoding with two constants
+  ldr  r2, [r0]
+  bics r2, r1
+  str  r2, [r0]
+  bx lr
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator, "xor!" @ ( x 32-addr -- )  Toggle bits
+  Wortbirne Flag_inline|Flag_opcodierbar_Speicherschreiben, "xor!" @ ( x 32-addr -- )  Toggle bits
   @ Wechselt die Bits in der Speicherstelle
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0, r1} @ X is the new TOS after the store completes.
@@ -492,23 +280,25 @@ allocator_1store:
   movs tos, r1
   bx lr
 
-    push {lr}
-      bl expect_two_elements
-      bl dup_allocator
-      bl allocator_4fetch
-      bl rot_allocator
-      pushdaconstw 0x4040 @ eors r0, r0      Opcode
-      bl alloc_kommutativ
-      bl swap_allocator
-      bl allocator_4store
-    pop {pc}
+  @ For opcoding with one constant
+  ldr  r2, [r0]
+  eors r2, tos
+  str  r2, [r0]
+  bx lr
+
+  @ For opcoding with two constants
+  ldr  r2, [r0]
+  eors r2, r1
+  str  r2, [r0]
+  bx lr
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator, "bit@" @ ( x 32-addr -- Flag )  Check bits
+  Wortbirne Flag_inline|Flag_opcodierbar_Spezialfall, "bit@" @ ( x 32-addr -- Flag )  Check bits
   @ Prüft, ob Bits in der Speicherstelle gesetzt sind
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0} @ Bitmaske holen
   ldr tos, [tos] @ Speicherinhalt holen
+struktur_bitfetch:
   ands tos, r0   @ Bleibt nach AND etwas über ?
 
   .ifdef m0core
@@ -522,16 +312,49 @@ allocator_1store:
   bx lr
   .endif
 
+  @------------------------------------------------------------------------------
+  @ Opcodable optimisations enter here.
+  ldr r2, =0x6800 @ ldr r0, [r0, #0] Opcode
+
+bitfetch_opcoding:
     push {lr}
-      bl expect_two_elements
-      bl allocator_4fetch
-      pushdaconstw 0x4000 @ ands r0, r0 Opcode
-      bl alloc_kommutativ
-      bl allocator_unequal_zero
+    cmp r3, #1
+    bne 2f
+
+    @ Exactly one folding constant available
+    @ Encode the address
+    pushdaconst 0
+    bl registerliteralkomma
+    @ subs r3, #1 @ Not necessary
+
+    pushda r2 @ ldr... r0, [r0, #0] Opcode
+    bl hkomma
+    b.n 3f
+
+2:  @ Two or more folding constants available
+    @ Fetch the Bitmask from the stack and write all folding constants left.
+    ldmia psp!, {r1} @ NOS into r1
+    subs r3, #1 @ One constant less to write
+    bl konstantenschreiben @ Write all other constants in dictionary
+
+    @ Address is now already in TOS. Generate fetch opcode:
+    pushdaconst 0x0036
+    orrs tos, r2 @ ldr... r6 [ r6 #0 ] Opcode
+    bl hkomma
+
+    @ Encode the bitmask into r0.
+    pushda r1
+    pushdaconst 0
+    bl registerliteralkomma
+
+3:  pushdatos
+    ldr tos, =struktur_bitfetch
+    bl inlinekomma
+
     pop {pc}
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator, "hbis!" @ ( x 16-addr -- )  Set bits
+  Wortbirne Flag_inline|Flag_opcodierbar_Speicherschreiben, "hbis!" @ ( x 16-addr -- )  Set bits
   @ Setzt die Bits in der Speicherstelle
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0, r1} @ X is the new TOS after the store completes.
@@ -541,19 +364,20 @@ allocator_1store:
   movs tos, r1
   bx lr
 
-    push {lr}
-      bl expect_two_elements
-      bl dup_allocator
-      bl allocator_2fetch
-      bl rot_allocator
-      pushdaconstw 0x4300 @ orrs r0, r0      Opcode
-      bl alloc_kommutativ
-      bl swap_allocator
-      bl allocator_2store
-    pop {pc}
+  @ For opcoding with one constant
+  ldrh r2, [r0]
+  orrs r2, tos
+  strh r2, [r0]
+  bx lr
+
+  @ For opcoding with two constants
+  ldrh r2, [r0]
+  orrs r2, r1
+  strh r2, [r0]
+  bx lr
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator, "hbic!" @ ( x 16-addr -- )  Clear bits
+  Wortbirne Flag_inline|Flag_opcodierbar_Speicherschreiben, "hbic!" @ ( x 16-addr -- )  Clear bits
   @ Setzt die Bits in der Speicherstelle
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0, r1} @ X is the new TOS after the store completes.
@@ -563,19 +387,20 @@ allocator_1store:
   movs tos, r1
   bx lr
 
-    push {lr}
-      bl expect_two_elements
-      bl dup_allocator
-      bl allocator_2fetch
-      bl rot_allocator
-      pushdaconstw 0x4380 @ bics r0, r0      Opcode
-      bl alloc_unkommutativ
-      bl swap_allocator
-      bl allocator_2store
-    pop {pc}
+  @ For opcoding with one constant
+  ldrh r2, [r0]
+  bics r2, tos
+  strh r2, [r0]
+  bx lr
+
+  @ For opcoding with two constants
+  ldrh r2, [r0]
+  bics r2, r1
+  strh r2, [r0]
+  bx lr
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator, "hxor!" @ ( x 16-addr -- )  Toggle bits
+  Wortbirne Flag_inline|Flag_opcodierbar_Speicherschreiben, "hxor!" @ ( x 16-addr -- )  Toggle bits
   @ Setzt die Bits in der Speicherstelle
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0, r1} @ X is the new TOS after the store completes.
@@ -585,19 +410,20 @@ allocator_1store:
   movs tos, r1
   bx lr
 
-    push {lr}
-      bl expect_two_elements
-      bl dup_allocator
-      bl allocator_2fetch
-      bl rot_allocator
-      pushdaconstw 0x4040 @ eors r0, r0      Opcode
-      bl alloc_kommutativ
-      bl swap_allocator
-      bl allocator_2store
-    pop {pc}
+  @ For opcoding with one constant
+  ldrh r2, [r0]
+  eors r2, tos
+  strh r2, [r0]
+  bx lr
+
+  @ For opcoding with two constants
+  ldrh r2, [r0]
+  eors r2, r1
+  strh r2, [r0]
+  bx lr
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator, "hbit@" @ ( x 16-addr -- Flag )  Check bits
+  Wortbirne Flag_inline|Flag_opcodierbar_Spezialfall, "hbit@" @ ( x 16-addr -- Flag )  Check bits
   @ Prüft, ob Bits in der Speicherstelle gesetzt sind
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0}  @ Bitmaske holen
@@ -615,16 +441,13 @@ allocator_1store:
   bx lr
   .endif
 
-    push {lr}
-      bl expect_two_elements
-      bl allocator_2fetch
-      pushdaconstw 0x4000 @ ands r0, r0 Opcode
-      bl alloc_kommutativ
-      bl allocator_unequal_zero
-    pop {pc}
+  @------------------------------------------------------------------------------
+  @ Opcodable optimisations enter here.
+  ldr r2, =0x8800 @ ldrh r0, [r0, #0] Opcode
+  b.n bitfetch_opcoding
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator, "cbis!" @ ( x 8-addr -- )  Set bits
+  Wortbirne Flag_inline|Flag_opcodierbar_Speicherschreiben, "cbis!" @ ( x 8-addr -- )  Set bits
   @ Setzt die Bits in der Speicherstelle
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0, r1} @ X is the new TOS after the store completes.
@@ -634,18 +457,20 @@ allocator_1store:
   movs tos, r1
   bx lr
 
-    push {lr}
-      bl expect_two_elements
-      bl dup_allocator
-      bl allocator_1fetch
-      bl rot_allocator
-      pushdaconstw 0x4300 @ orrs r0, r0      Opcode
-      bl alloc_kommutativ
-      bl swap_allocator
-      bl allocator_1store
-    pop {pc}
+  @ For opcoding with one constant
+  ldrb r2, [r0]
+  orrs r2, tos
+  strb r2, [r0]
+  bx lr
+
+  @ For opcoding with two constants
+  ldrb r2, [r0]
+  orrs r2, r1
+  strb r2, [r0]
+  bx lr
+
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator, "cbic!" @ ( x 8-addr -- )  Clear bits
+  Wortbirne Flag_inline|Flag_opcodierbar_Speicherschreiben, "cbic!" @ ( x 8-addr -- )  Clear bits
   @ Setzt die Bits in der Speicherstelle
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0, r1} @ X is the new TOS after the store completes.
@@ -655,19 +480,20 @@ allocator_1store:
   movs tos, r1
   bx lr
 
-    push {lr}
-      bl expect_two_elements
-      bl dup_allocator
-      bl allocator_1fetch
-      bl rot_allocator
-      pushdaconstw 0x4380 @ bics r0, r0      Opcode
-      bl alloc_unkommutativ
-      bl swap_allocator
-      bl allocator_1store
-    pop {pc}
+  @ For opcoding with one constant
+  ldrb r2, [r0]
+  bics r2, tos
+  strb r2, [r0]
+  bx lr
+
+  @ For opcoding with two constants
+  ldrb r2, [r0]
+  bics r2, r1
+  strb r2, [r0]
+  bx lr
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator, "cxor!" @ ( x 8-addr -- )  Toggle bits
+  Wortbirne Flag_inline|Flag_opcodierbar_Speicherschreiben, "cxor!" @ ( x 8-addr -- )  Toggle bits
   @ Setzt die Bits in der Speicherstelle
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0, r1} @ X is the new TOS after the store completes.
@@ -677,19 +503,20 @@ allocator_1store:
   movs tos, r1
   bx lr
 
-    push {lr}
-      bl expect_two_elements
-      bl dup_allocator
-      bl allocator_1fetch
-      bl rot_allocator
-      pushdaconstw 0x4040 @ eors r0, r0      Opcode
-      bl alloc_kommutativ
-      bl swap_allocator
-      bl allocator_1store
-    pop {pc}
+  @ For opcoding with one constant
+  ldrb r2, [r0]
+  eors r2, tos
+  strb r2, [r0]
+  bx lr
+
+  @ For opcoding with two constants
+  ldrb r2, [r0]
+  eors r2, r1
+  strb r2, [r0]
+  bx lr
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator, "cbit@" @ ( x 8-addr -- Flag )  Check bits
+  Wortbirne Flag_inline|Flag_opcodierbar_Spezialfall, "cbit@" @ ( x 8-addr -- Flag )  Check bits
   @ Prüft, ob Bits in der Speicherstelle gesetzt sind
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0}  @ Bitmaske holen
@@ -707,12 +534,19 @@ allocator_1store:
   bx lr
   .endif
 
-    push {lr}
-      bl expect_two_elements
-      bl allocator_1fetch
-      pushdaconstw 0x4000 @ ands r0, r0 Opcode
-      bl alloc_kommutativ
-      bl allocator_unequal_zero
-    pop {pc}
+  @------------------------------------------------------------------------------
+  @ Opcodable optimisations enter here.
+  ldr r2, =0x7800 @ ldrb r0, [r0, #0] Opcode
+  b.n bitfetch_opcoding
 
-.ltorg
+@ -----------------------------------------------------------------------------
+  Wortbirne Flag_inline|Flag_foldable_1, "cell+" @ ( x -- x+4 ) 
+@ -----------------------------------------------------------------------------
+  adds tos, #4
+  bx lr
+
+@ -----------------------------------------------------------------------------
+  Wortbirne Flag_inline|Flag_foldable_1, "cells" @ ( x -- 4*x ) 
+@ -----------------------------------------------------------------------------
+  lsls tos, #2
+  bx lr
