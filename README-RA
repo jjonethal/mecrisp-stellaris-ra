@@ -1,0 +1,94 @@
+
+---------------------------------------------------------------
+          Mecrisp-Stellaris with Register Allocator
+          Released under GPL3
+---------------------------------------------------------------
+
+This is highly experimental software !
+
+It should look and feel like the mainstream Mecrisp-Stellaris,
+but with a very important difference:
+
+This time, it contains an analytical compiler which keeps track
+of the top three stack elements and maps them to registers
+whenever possible.
+
+Three targets are available: 
+ARM Linux, KL25Z128 (Cortex M0) and LM4F120 (Cortex M4).
+
+For M4, you can flash your Stellaris Launchpad with the included binary.
+
+For M0, you have two possibilities:
+
+  You can either flash the srec file to your Freedom board
+  or make the thumbulator and type
+  "thumbulator mecrisp-stellaris-kl25z128.bin".
+
+To dive in, you should load the disassembler and see
+definitions you have just compiled.
+
+Two examples, on M0:
+
+: >gray ( u -- x ) dup 1 rshift xor ; \ For any cell size  ok.
+  ok.
+see >gray
+00007C48: B500  push { lr }
+00007C4A: 0873  lsrs r3 r6 #1
+00007C4C: 405E  eors r6 r3
+00007C4E: BD00  pop { pc }
+ ok.
+
+
+: bitexp ( u -- u )  ok.
+  ok.
+  \ Returns an integer value equivalent to  ok.
+  \ the exponential. For numbers > 16,  ok.
+  \ bitexp(x) approx = 2^(x/8 + 1)  ok.
+  ok.
+  \ B(E(x)) = x for 16 <= x <= 247.  ok.
+  ok.
+  dup 247 u>  \ Overflow ?  ok.
+  if drop $F0000000  ok.
+  else  ok.
+  ok.
+    dup 16 u<= if 1 rshift  ok.
+               else  ok.
+                 dup ( u u )  ok.
+                 7 and 8 or ( u b )  ok.
+                 swap ( b u )  ok.
+                 3 rshift 2 - lshift  ok.
+               then  ok.
+  ok.
+  then  ok.
+  ok.
+  1-foldable ;  ok.
+  ok.
+see bitexp
+00007B8E: B500  push { lr }
+00007B90: 2EF7  cmp r6 #F7
+00007B92: D902  bls 00007B9A
+00007B94: 26F0  movs r6 #F0
+00007B96: 0636  lsls r6 r6 #18
+00007B98: E00C  b 00007BB4
+00007B9A: 2E10  cmp r6 #10
+00007B9C: D801  bhi 00007BA2
+00007B9E: 0876  lsrs r6 r6 #1
+00007BA0: E008  b 00007BB4
+00007BA2: 0033  lsls r3 r6 #0
+00007BA4: 2007  movs r0 #7
+00007BA6: 4003  ands r3 r0
+00007BA8: 2008  movs r0 #8
+00007BAA: 4303  orrs r3 r0
+00007BAC: 08F6  lsrs r6 r6 #3
+00007BAE: 3E02  subs r6 #2
+00007BB0: 40B3  lsls r3 r6
+00007BB2: 461E  mov r6 r3
+00007BB4: BD00  pop { pc }
+
+Note that it compiles bitexp without any stack movements at all.
+
+Please contact me to let me know your experience with
+the new compiler under the hood:
+
+Matthias Koch
+m-atthias@users.sf.net

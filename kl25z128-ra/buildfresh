@@ -1,0 +1,7 @@
+#!/bin/bash
+
+cd ../mecrisp-stellaris-source 
+./assemble
+cd ../kl25z128-ra
+
+./thumbulator *.bin
