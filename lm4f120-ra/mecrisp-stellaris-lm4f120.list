@@ -8268,7 +8268,7 @@ Disassembly of section .text:
     4a04:	72616c6c 	rsbvc	r6, r1, #27648	; 0x6c00
     4a08:	52207369 	eorpl	r7, r0, #-1543503871	; 0xa4000001
     4a0c:	2e302041 	cdpcs	0, 3, cr2, cr0, cr1, {2}
-    4a10:	78652034 	stmdavc	r5!, {r2, r4, r5, sp}^
+    4a10:	78652035 	stmdavc	r5!, {r0, r2, r4, r5, sp}^
     4a14:	69726570 	ldmdbvs	r2!, {r4, r5, r6, r8, sl, sp, lr}^
     4a18:	746e656d 	strbtvc	r6, [lr], #-1389	; 0x56d
     4a1c:	66206c61 	strtvs	r6, [r0], -r1, ror #24

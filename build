@@ -19,3 +19,13 @@ cd lm4f120-ra
 make clean all
 md5sum *.bin
 cd ..
+
+cd linux
+./assemble
+md5sum mecrisp-stellaris-linux
+cd ..
+
+cd linux-ra
+./assemble
+md5sum mecrisp-stellaris-linux
+cd ..
