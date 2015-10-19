@@ -20,44 +20,58 @@
 @ Logic.
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_foldable_2|Flag_inline|Flag_allocator_Rechenlogik_kommutativ, "and" @ ( x1 x2 -- x1&x2 )
+  Wortbirne Flag_foldable_2|Flag_inline|Flag_allocator, "and" @ ( x1 x2 -- x1&x2 )
                         @ Combines the top two stack elements using bitwise AND.
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0}
   ands tos, r0
   bx lr
 
-  ands r0, r0
+  pushdaconstw 0x4000 @ ands r0, r0
+  b.n alloc_kommutativ
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_foldable_2|Flag_inline|Flag_allocator_Rechenlogik_unkommutativ, "bic" @ ( x1 x2 -- x1&~x2 )
+  Wortbirne Flag_foldable_2|Flag_inline|Flag_allocator, "bic" @ ( x1 x2 -- x1&~x2 )
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0}
   bics r0, tos
   movs tos, r0
   bx lr
 
-  bics r0, r0
+  pushdaconstw 0x4380 @ bics r0, r0
+  b.n alloc_unkommutativ
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_foldable_2|Flag_inline|Flag_allocator_Rechenlogik_kommutativ, "or" @ ( x1 x2 -- x1|x2 )
+  Wortbirne Flag_foldable_2|Flag_inline|Flag_allocator, "or" @ ( x1 x2 -- x1|x2 )
                        @ Combines the top two stack elements using bitwise OR.
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0}
   orrs tos, r0
   bx lr
 
-  orrs r0, r0
+  pushdaconstw 0x4300 @ orrs r0, r0
+  b.n alloc_kommutativ
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_foldable_2|Flag_inline|Flag_allocator_Rechenlogik_kommutativ, "xor" @ ( x1 x2 -- x1|x2 )
+  Wortbirne Flag_foldable_2|Flag_inline|Flag_allocator, "xor" @ ( x1 x2 -- x1|x2 )
                         @ Combines the top two stack elements using bitwise exclusive-OR.
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0}
   eors tos, r0
   bx lr
 
-  eors r0, r0
+  pushdaconstw 0x4040 @ eors r0, r0
+  b.n alloc_kommutativ
+
+@ -----------------------------------------------------------------------------
+  Wortbirne Flag_foldable_2|Flag_inline|Flag_allocator, "*" @ ( u1|n1 u2|n2 -- u3|n3 )
+@ -----------------------------------------------------------------------------
+  ldm psp!, {r0}    @ Get u1|n1 into a register.
+  muls tos, r0      @ Multiply!
+  bx lr
+
+  pushdaconstw 0x4340 @ muls r0, r0
+  b.n alloc_kommutativ
 
   .ifdef m0core
 @ -----------------------------------------------------------------------------

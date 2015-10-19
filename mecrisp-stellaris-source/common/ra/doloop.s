@@ -344,7 +344,7 @@ qdo_rest_der_schleifenstruktur:
 gemeinsame_schleifenoptimierung: @ This is a common part for opcoding optimized do and ?do
 @------------------------------------------------------------------------------
   push {lr}
-
+  bl push_lr_nachholen
   bl expect_two_elements
   bl tidyup_register_allocator_3os
 

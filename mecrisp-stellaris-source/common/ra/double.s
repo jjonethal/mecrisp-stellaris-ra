@@ -151,6 +151,7 @@ dnip:
   ldm psp!, {tos}
   bx lr
     push {lr}
+    bl push_lr_nachholen
     bl swap_allocator
     bl allocator_to_r
     bl allocator_to_r
@@ -167,6 +168,7 @@ dnip:
   str r0, [psp]
   bx lr
     push {lr}
+    bl push_lr_nachholen
     bl allocator_r_from
     bl allocator_r_from
     bl swap_allocator
@@ -181,6 +183,7 @@ dnip:
   ldr tos, [sp]
   bx lr
     push {lr}
+    bl push_lr_nachholen
     pushdaconstw 0x9801
     bl loop_j_allocator
     bl rfetch_allocator
@@ -192,6 +195,7 @@ dnip:
   add sp, #8
   bx lr
     push {lr}
+    bl push_lr_nachholen
     pushdaconstw 0xB002  @ Opcode add sp, #8
     bl hkomma
     pop {pc}

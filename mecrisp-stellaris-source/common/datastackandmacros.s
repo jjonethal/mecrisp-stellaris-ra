@@ -192,21 +192,22 @@ psp .req r7
 .equ Flag_foldable_6, Flag_visible | 0x0046
 .equ Flag_foldable_7, Flag_visible | 0x0047
 
-
-.ifdef registerallocator
-
 .equ Flag_buffer, Flag_visible | 0x0100
 .equ Flag_buffer_foldable, Flag_buffer|Flag_foldable
 
-.equ Flag_allocator, Flag_visible | 0x200
-.equ Flag_allocator_Rechenlogik_kommutativ, Flag_allocator|0x3000
-.equ Flag_allocator_Rechenlogik_unkommutativ, Flag_allocator|0x4000
 
+
+.ifdef registerallocator
+
+.equ Flag_allocator, Flag_visible | 0x200
 .equ Flag_Sprungschlucker, Flag_visible | 0x400
+.equ Flag_Zustandswechsler, Flag_visible | 0x800
+.equ Flag_bxlr, Flag_visible | 0x1000
 
 .else
 
 .equ Flag_Sprungschlucker, 0 @ Deactivated, just to unify source code for both variants.
+.equ Flag_bxlr, 0
 
 .equ Flag_opcodable,  Flag_visible | 0x0008
 
@@ -224,9 +225,6 @@ psp .req r7
   .else         @ Additional optimisations only available on M3/M4
 .equ Flag_opcodierbar_Rechenlogik_M3,    Flag_foldable|Flag_opcodable|6
   .endif
-
-.equ Flag_buffer, Flag_visible | 0x0100
-.equ Flag_buffer_foldable, Flag_buffer|Flag_foldable
 
 .endif
 
@@ -329,7 +327,7 @@ psp .req r7
 .macro welcome Meldung
   bl dotgaensefuesschen
         .byte 8f - 7f         @ Compute length of name field.
-7:      .ascii "Mecrisp-Stellaris RA 0.7 experimental"
+7:      .ascii "Mecrisp-Stellaris RA 0.8 experimental"
         .ascii "\Meldung\n"
 8:      .p2align 1
 .endm

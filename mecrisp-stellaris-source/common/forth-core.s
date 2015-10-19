@@ -135,13 +135,13 @@ CoreDictionaryAnfang: @ Dictionary-Einsprungpunkt setzen
   .ifdef registerallocator
   .include "../common/ra/ra-infrastructure.s"
   .include "../common/ra/ra-tools.s"
-  .include "../common/ra/ra-main.s"
   @ .include "../common/ra/ra-debug.s"
   .ltorg
 
   .include "../common/ra/double.s"
   .include "../common/ra/stackjugglers.s"
   .include "../common/ra/logic.s"
+  .include "../common/ra/ra-logic.s"
   .include "../common/ra/comparisions.s"
   .ltorg
   .include "../common/ra/memory.s"

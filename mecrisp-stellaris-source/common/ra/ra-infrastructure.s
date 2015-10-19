@@ -67,8 +67,9 @@ nfaltkonstanten_aufschwimmen: @ Sollten an der Oberfläche des RA-Cache Konstant
                              @ werden diese am Ende wieder als Faltkonstanten zur Verfügung gestellt.
 @ -----------------------------------------------------------------------------
 
-  push {r0, r1, r2, lr}
+  push {lr}
   ldr r0, =allocator_base
+  movs r3, #0 @ Momentan haben wir gar keine Faltkonstanten ! Schließlich wird alles in den Allokator geschoben...
 
 1:ldr r1, [r0, #offset_state_tos]
   cmp r1, #constant
@@ -81,7 +82,7 @@ nfaltkonstanten_aufschwimmen: @ Sollten an der Oberfläche des RA-Cache Konstant
     b 1b
 
 2:@ Fertig, oben auf dem RA-Cache sind keine Konstanten mehr.
-  pop {r0, r1, r2, pc}
+  pop {pc}
 
 
 @ -----------------------------------------------------------------------------
