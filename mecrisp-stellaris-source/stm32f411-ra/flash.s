@@ -245,7 +245,7 @@ eraseflashsector:  @ Löscht einen Flash-Sektor
 
 @ -----------------------------------------------------------------------------
 @ 16 kb sectors
-  loeschpruefung  0x08004000  0x08007FFF  1
+@  loeschpruefung  0x08004000  0x08007FFF  1
   loeschpruefung  0x08008000  0x0800BFFF  2
   loeschpruefung  0x0800C000  0x0800FFFF  3
 
