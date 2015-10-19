@@ -292,6 +292,18 @@ hkomma: @ Fügt 16 Bits an das Dictionary an.
   @ dup
   @ bl hexdot
 
+  .ifdef registerallocator
+    @ Schon geschriebene Opcodes zählen !
+    ldr r0, =state
+    ldr r1, [r0]
+    cmp r1, #0        @ Nicht aus dem Execute-Zustand herausschalten
+    beq 1f
+    adds r1, #1
+    beq 1f            @ Das normale True-Flag nicht erhöhen :-)
+      str r1, [r0]
+1:
+  .endif
+
   ldr r0, =Dictionarypointer @ Fetch Dictionarypointer to decide if compiling for RAM or for Flash
   ldr r1, [r0] @ Hole den Dictionarypointer
 

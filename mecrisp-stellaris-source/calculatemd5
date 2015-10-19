@@ -6,6 +6,10 @@ cd lpc1114fn28
 md5sum *.bin
 cd ..
 
+cd lpc1114fn28-ra
+md5sum *.bin
+cd ..
+
 cd lpc1115fbd48
 md5sum *.bin
 cd ..
@@ -43,6 +47,10 @@ md5sum *.bin
 cd ..
 
 cd tm4c1294
+md5sum *.bin
+cd ..
+
+cd tm4c1294-ra
 md5sum *.bin
 cd ..
 

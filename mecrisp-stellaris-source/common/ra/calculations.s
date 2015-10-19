@@ -539,15 +539,6 @@ divmod_plus_plus:
   .endif
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_foldable_2|Flag_inline|Flag_allocator_Rechenlogik_kommutativ, "*" @ ( u1|n1 u2|n2 -- u3|n3 )
-@ -----------------------------------------------------------------------------
-  ldm psp!, {r0}    @ Get u1|n1 into a register.
-  muls tos, r0      @ Multiply!
-  bx lr
-
-  muls r0, r0
-
-@ -----------------------------------------------------------------------------
   Wortbirne Flag_foldable_1|Flag_inline, "even" @ ( x -- x' )
 @ -----------------------------------------------------------------------------
   movs r0, #1

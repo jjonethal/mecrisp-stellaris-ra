@@ -174,6 +174,26 @@ not_found_addr_r0_len_r1:
     movs r5, #0   @ Konstantenfaltungszeiger löschen  Clear constant folding pointer
     str r5, [r4]  @ Do not collect literals for folding in execute mode. They simply stay on stack.
 
+
+    @ Beginnt eine neue Definition mit : ?
+    ldr r3, =Flag_Zustandswechsler & ~Flag_visible
+    ands r3, r1
+    beq.n .keindoppelpunkt
+
+      @ writeln "Definitionsanfang-RA"
+      ddrop
+      ldr r0, =Datenstacksicherung @ Setzt den Füllstand des Datenstacks zur Probe.
+      str psp, [r0]                @ Save current datastack pointer to detect structure mismatch later.
+
+      bl create
+
+      ldr r0, =state
+      movs r1, #1 @ So eine Art bx lx-Kompilierzustand-Flag in State legen
+      str r1, [r0]
+      b.n 1b
+
+.keindoppelpunkt:
+
     movs r3, #Flag_immediate_compileonly & ~Flag_visible
     ands r3, r1
     cmp r3, #Flag_immediate_compileonly & ~Flag_visible
@@ -185,7 +205,7 @@ not_found_addr_r0_len_r1:
     ddrop
     pushda r2    @ Adresse zum Ausführen   Code entry point
     bl execute   @                         Execute it
-    bl 1b @ Interpretschleife fortsetzen.  Finished.
+    b.n 1b @ Interpretschleife fortsetzen.  Finished.
 
   @ Registerkarte:
   @  r0: Stringadresse des Tokens, wird ab hier nicht mehr benötigt.
@@ -269,7 +289,13 @@ not_found_addr_r0_len_r1:
     @ TOS, NOS und 3OS im RA-Cache hängenbleiben. Dabei werden nur vielleicht Opcodes generiert, falls
     @ der RA-Cache zu klein ist, alle zu fassen.
 
-    bl register_allocator @ Opcodieren und Optimieren
+    @ Der Allokatoreinsprung ist am Ende der Definition
+    movs r0, r2
+    bl suchedefinitionsende
+    adds r2, r0, #1 @ One more for Thumb
+
+    ldr r0, =allocator_base
+    blx r2
 
     movs r0, psp  @ Keine Konstantenfaltung über den Allokator hinweg - sonst würde z.B. do/loop die Struktur nicht auf dem Stack lagern können.
     str r0, [r4]  @ Vor dem Aufschwimmen lassen den Konstantenfaltungszeiger neu setzen.
@@ -287,6 +313,15 @@ not_found_addr_r0_len_r1:
 
   movs r5, #0   @ Konstantenfaltungszeiger löschen  Clear constant folding pointer.
   str r5, [r4]
+
+@ -----------------------------------------------------------------------------
+  @ Write push {lr} if this definition still is in bx lr mode.
+
+  ldr r0, =Flag_bxlr & ~Flag_visible
+  ands r0, r1
+  bne.n .prepared_for_classic
+    bl push_lr_nachholen
+.prepared_for_classic:
 
 @ -----------------------------------------------------------------------------
   @ Classic compilation.

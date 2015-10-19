@@ -17,17 +17,15 @@
 @
 
 .syntax unified
-.cpu cortex-m0
+.cpu cortex-m4
 .thumb
 
 @ -----------------------------------------------------------------------------
 @ Swiches for capabilities of this chip
 @ -----------------------------------------------------------------------------
 
-.equ m0core, 1
+.equ charkommaavailable, 1
 .equ registerallocator, 1
-.equ emulated16bitflashwrites, 1
-@ Not available:  .equ charkommaavailable, 1
 
 @ -----------------------------------------------------------------------------
 @ Start with some essential macro definitions
@@ -42,14 +40,14 @@
 
 @ Konstanten für die Größe des Ram-Speichers
 
-.equ RamAnfang, 0x1FFFF000 @ Start of RAM          Porting: Change this !
-.equ RamEnde,   0x20003000 @ End   of RAM.  16 kb. Porting: Change this !
+.equ RamAnfang, 0x20000000 @ Start of RAM          Porting: Change this !
+.equ RamEnde,   0x20040000 @ End   of RAM. 256 kb. Porting: Change this !
 
 @ Konstanten für die Größe und Aufteilung des Flash-Speichers
 
-.equ Kernschutzadresse,     0x00005000 @ Darunter wird niemals etwas geschrieben ! Mecrisp core never writes flash below this address.
-.equ FlashDictionaryAnfang, 0x00005000 @ 20 kb für den Kern reserviert...           20 kb Flash reserved for core.
-.equ FlashDictionaryEnde,   0x00020000 @ 108 kb Platz für das Flash-Dictionary     108 kb Flash available. Porting: Change this !
+.equ Kernschutzadresse,     0x00008000 @ Darunter wird niemals etwas geschrieben ! Mecrisp core never writes flash below this address.
+.equ FlashDictionaryAnfang, 0x00008000 @ 32 kb für den Kern reserviert...           32 kb Flash reserved for core.
+.equ FlashDictionaryEnde,   0x00100000 @ 992 kb Platz für das Flash-Dictionary     992 kb Flash available. Porting: Change this !
 .equ Backlinkgrenze,        RamAnfang  @ Ab dem Ram-Start.
 
 
@@ -69,12 +67,6 @@
 @ -----------------------------------------------------------------------------
 Reset: @ Einsprung zu Beginn
 @ -----------------------------------------------------------------------------
-
-   @ Disable the watchdog timer
-   movs r1, #0
-   ldr  r0, =0x40048100 @ SIM_COPC
-   str  r1, [r0]
-
    @ Initialisierungen der Hardware, habe und brauche noch keinen Datenstack dafür
    @ Initialisations for Terminal hardware, without Datastack.
    bl uart_init
@@ -82,7 +74,7 @@ Reset: @ Einsprung zu Beginn
    @ Catch the pointers for Flash dictionary
    .include "../common/catchflashpointers.s"
 
-   welcome " with M0 core for KL25Z128 by Matthias Koch"
+   welcome " for TM4C1294 by Matthias Koch"
 
    @ Ready to fly !
    .include "../common/boot.s"

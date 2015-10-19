@@ -4,6 +4,10 @@ cd lpc1114fn28
 make clean
 cd ..
 
+cd lpc1114fn28-ra
+make clean
+cd ..
+
 cd lpc1115fbd48
 make clean
 cd ..
@@ -41,6 +45,10 @@ make clean
 cd ..
 
 cd tm4c1294
+make clean
+cd ..
+
+cd tm4c1294-ra
 make clean
 cd ..
 

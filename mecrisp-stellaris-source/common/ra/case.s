@@ -24,9 +24,11 @@
   @ ( -- 0 8 )
 case:
 @------------------------------------------------------------------------------
+  push {lr}
+  bl push_lr_nachholen
   pushdaconst 0 @ Zahl der Zweige    Current number of branches
   pushdaconst 8 @ Strukturerkennung  Structure pattern
-  bx lr
+  pop {pc}
 
 @ Small test:
 @ : wahl case 1 of ." Eins" endof 2 of ." Zwei" endof dup 3 = ?of ." Drei?" endof ." Andere" endcase ;
@@ -87,6 +89,7 @@ of_opcodiereinsprung:
 1:drop
 
   push {lr}
+
   @ Mich interessieren nur die beiden obersten Elemente, die verglichen werden sollen.  
   bl expect_two_elements @ Mindestens 2 Elemente
   bl tidyup_register_allocator_3os @ Maximal 2 Elemente, das dritte gleich in den Stack schieben.

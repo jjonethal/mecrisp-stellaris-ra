@@ -16,59 +16,7 @@
 @    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 @
 
-@ Register allocator main. Perform various optimisations.
-
-@ -----------------------------------------------------------------------------
-@ Wortbirne Flag_visible, "allocator" @ Beim Einsprung ist normales Falten bereits nicht mehr möglich.
-register_allocator:                   @ Alle Konstanten sind in den RA-Cache geschoben.
-@ -----------------------------------------------------------------------------
-
-  @ Register enthalten nun:
-  @ r1: Flagfeld
-  @ r2: Einsprungadresse
-  @ r3: Zahl der vorhandenen Faltkonstanten = 0
-
-  @ Wenn ich hier ankomme, sind alle Faltmöglichkeiten ausgeschöpft.
-
-  push {r0, r1, r2, r3, lr}
-
-  @writeln "Allocator Einsprung"
-  @bl view_register_allocator
-
-  @ Alle Faltkonstanten sind jetzt im RA-Cache.
-
-  @ Opcode oder der Allokatoreinsprung  ist am Ende der Definition
-  movs r0, r2
-  bl suchedefinitionsende
-  movs r2, r0
-
-  pushdatos @ Hole den Opcode
-  ldrh tos, [r2]
-
-  @ Maskiere jetzt den Allokator-Fall:
-  lsrs r1, #12 @ Den Fall vergleichsfreundlich legen @ Achtung mit dem Sichtbar-Flag
-
-  ldr r0, =allocator_base
-
-  @ r0: allocator_base
-  @ r1: Fall
-  @ r2: Zeiger auf das Anhängsel, falls noch etwas anderes benötigt wird
-  @ Auf dem Stack: Der erste Opcode des Anhängsels
-
-  @ -----------------------------------------------------------------------------
-  cmp r1, #3
-  beq alloc_kommutativ_ohneregister
-  @ -----------------------------------------------------------------------------
-  cmp r1, #4
-  beq alloc_unkommutativ_ohneregister
-  @ -----------------------------------------------------------------------------
-    drop @ Den schon geholten Opcode wieder vergessen - wir brauchen ihn hier nicht...
-    adds r2, #1 @ One more for Thumb
-    blx r2
-
-    pop {r0, r1, r2, r3, pc}
-
-
+@ Register allocator for logic
 
 @ Sondereinsprünge, die für Memory Read-Modify-Write und die Schiebebefehle gebraucht werden.
 

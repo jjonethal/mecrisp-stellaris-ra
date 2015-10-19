@@ -382,3 +382,21 @@ tos_registerwechsel: @ Wechselt den TOS-Register, gibt diesen in r3 zurück
   str r3, [r0, #offset_state_tos]
   pop {pc}
 
+@ -----------------------------------------------------------------------------
+push_lr_nachholen:
+@ -----------------------------------------------------------------------------
+  push {r0, lr}
+    ldr r0, =state
+    ldr r3, [r0]
+    adds r3, #1 @ Wenn es -1 war, ergibt dies Null, und es war schon im push {lr} Modus.
+    beq.n 1f
+
+      movs r3, #0  @ State auf klassisch "true" setzen.
+      mvns r3, r3
+      str r3, [r0]
+
+      @ writeln "Nachholen von push {lr}"
+      pushdaconstw 0xb500 @ Opcode für push {lr} schreiben  Write opcode for push {lr}
+      bl hkomma
+
+1:pop {r0, pc}

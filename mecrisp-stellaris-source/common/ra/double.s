@@ -151,6 +151,7 @@ dnip:
   ldm psp!, {tos}
   bx lr
     push {lr}
+    bl push_lr_nachholen
     bl swap_allocator
     bl allocator_to_r
     bl allocator_to_r
@@ -167,6 +168,7 @@ dnip:
   str r0, [psp]
   bx lr
     push {lr}
+    bl push_lr_nachholen
     bl allocator_r_from
     bl allocator_r_from
     bl swap_allocator
@@ -181,6 +183,7 @@ dnip:
   ldr tos, [sp]
   bx lr
     push {lr}
+    bl push_lr_nachholen
     pushdaconstw 0x9801
     bl loop_j_allocator
     bl rfetch_allocator
@@ -192,6 +195,7 @@ dnip:
   add sp, #8
   bx lr
     push {lr}
+    bl push_lr_nachholen
     pushdaconstw 0xB002  @ Opcode add sp, #8
     bl hkomma
     pop {pc}
@@ -906,7 +910,7 @@ f_star: @ Signed multiply s31.32
 @------------------------------------------------------------------------------
 
 @------------------------------------------------------------------------------
-  Wortbirne Flag_inline, "2!" @ Store ( d addr -- )
+  Wortbirne Flag_inline|Flag_allocator, "2!" @ Store ( d addr -- )
 @------------------------------------------------------------------------------
   ldmia psp!, {r1, r2}
   str r1, [tos]
@@ -914,14 +918,66 @@ f_star: @ Signed multiply s31.32
   drop
   bx lr
 
+    push {lr}
+    bl expect_three_elements
+
+    ldr r1, [r0, #offset_state_tos]
+    ldr r2, [r0, #offset_constant_tos]
+    push {r1, r2}
+
+    bl allocator_4store @ High-Teil wegstauen.
+
+    @ Das Schreiben sollte keinen der Register mit Ausnahme der Konstantenregister verändern.
+    bl befreie_tos
+    pop {r1, r2}
+    str r1, [r0, #offset_state_tos]
+
+    cmp r1, #constant
+    beq 1f
+      @ Tos ist im Register - dazu kann ich dann einfach einen anderen Opcode verwenden:
+      pushdaconstw 0x6040 @ str r0, [r0, #4] Opcode
+      bl allocator_4store_anderer_opcode
+      pop {pc}
+
+1:  @ Tos ist eine Konstante ! Wie fein :-)
+    adds r2, #4
+    str r2, [r0, #offset_constant_tos]
+    bl allocator_4store
+    pop {pc}
+
 @------------------------------------------------------------------------------
-  Wortbirne Flag_inline, "2@" @ Fetch ( addr -- d )
+  Wortbirne Flag_inline|Flag_allocator, "2@" @ Fetch ( addr -- d )
 @------------------------------------------------------------------------------
   subs psp, #4
   ldr r0, [tos, #4]
   str r0, [psp]
   ldr tos, [tos]
   bx lr
+
+    push {lr}
+    bl dup_allocator
+
+    ldr r1, [r0, #offset_state_tos]
+    cmp r1, #constant
+    beq 1f
+      @ TOS ist ein Register.
+      @ So wird es Zeit für einen Register, #4 Opcode !
+      pushdaconstw 0x6840 @ ldr r0, [r0, #4] Opcode
+      bl allocator_4fetch_anderer_opcode
+
+      bl swap_allocator
+      bl allocator_4fetch
+      pop {pc}
+
+1:  @ TOS ist eine Konstante. Kann sie also wunderbar weiterverwenden ! Ergibt aber einzeln eine lange Aufräum-Sequenz, falls r6 nicht frei ist.
+    ldr r1, [r0, #offset_constant_tos]
+    adds r1, #4
+    str r1, [r0, #offset_constant_tos]
+    bl allocator_4fetch
+    
+    bl swap_allocator
+    bl allocator_4fetch
+    pop {pc}
 
 @------------------------------------------------------------------------------
 @ --- Double comparisions ---
@@ -1088,3 +1144,4 @@ f_star: @ Signed multiply s31.32
 
   bx lr
 
+  .ltorg

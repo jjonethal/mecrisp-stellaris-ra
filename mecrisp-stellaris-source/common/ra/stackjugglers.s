@@ -305,6 +305,7 @@ minusrot:
 
 allocator_to_r:
     push {lr}
+    bl push_lr_nachholen
     bl expect_one_element
     bl expect_tos_in_register @ Gibt den Register in r1 zurück.
 
@@ -327,6 +328,7 @@ allocator_to_r:
 
 allocator_r_from:
     push {lr}
+    bl push_lr_nachholen
     bl befreie_tos
     bl get_free_register
     str r3, [r0, #offset_state_tos]
@@ -347,6 +349,7 @@ allocator_r_from:
   ldr tos, [sp]
   bx lr
     push {lr}
+    bl push_lr_nachholen
     bl rfetch_allocator
     pop {pc}
 
@@ -356,6 +359,7 @@ allocator_r_from:
   add sp, #4
   bx lr
     push {lr}
+    bl push_lr_nachholen
     pushdaconstw 0xB001  @ Opcode add sp, #4
     bl hkomma
     pop {pc}
