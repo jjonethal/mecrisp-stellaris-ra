@@ -1,0 +1,4 @@
+eraseflash
+compiletoflash
+include ..\common\disassembler-m3.txt
+include ..\common\dump.txt
