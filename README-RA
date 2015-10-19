@@ -13,10 +13,10 @@ This time, it contains an analytical compiler which keeps track
 of the top three stack elements and maps them to registers
 whenever possible.
 
-Three targets are available: 
-ARM Linux, KL25Z128 (Cortex M0) and LM4F120 (Cortex M4).
+Four targets are available: 
+ARM Linux, KL25Z128 (Cortex M0) and LM4F120 & TM4C1294 (Cortex M4).
 
-For M4, you can flash your Stellaris Launchpad with the included binary.
+For M4, you can flash your Stellaris or Tiva Launchpad with the included binary.
 
 For M0, you have two possibilities:
 

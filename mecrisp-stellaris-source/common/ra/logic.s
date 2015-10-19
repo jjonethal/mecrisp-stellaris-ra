@@ -20,7 +20,7 @@
 @ Logic.
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator_Rechenlogik_kommutativ, "and" @ ( x1 x2 -- x1&x2 )
+  Wortbirne Flag_foldable_2|Flag_inline|Flag_allocator_Rechenlogik_kommutativ, "and" @ ( x1 x2 -- x1&x2 )
                         @ Combines the top two stack elements using bitwise AND.
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0}
@@ -30,7 +30,7 @@
   ands r0, r0
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator_Rechenlogik_unkommutativ, "bic" @ ( x1 x2 -- x1&~x2 )
+  Wortbirne Flag_foldable_2|Flag_inline|Flag_allocator_Rechenlogik_unkommutativ, "bic" @ ( x1 x2 -- x1&~x2 )
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0}
   bics r0, tos
@@ -40,7 +40,7 @@
   bics r0, r0
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator_Rechenlogik_kommutativ, "or" @ ( x1 x2 -- x1|x2 )
+  Wortbirne Flag_foldable_2|Flag_inline|Flag_allocator_Rechenlogik_kommutativ, "or" @ ( x1 x2 -- x1|x2 )
                        @ Combines the top two stack elements using bitwise OR.
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0}
@@ -50,7 +50,7 @@
   orrs r0, r0
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator_Rechenlogik_kommutativ, "xor" @ ( x1 x2 -- x1|x2 )
+  Wortbirne Flag_foldable_2|Flag_inline|Flag_allocator_Rechenlogik_kommutativ, "xor" @ ( x1 x2 -- x1|x2 )
                         @ Combines the top two stack elements using bitwise exclusive-OR.
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0}

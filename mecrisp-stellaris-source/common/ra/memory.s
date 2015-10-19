@@ -88,9 +88,11 @@ move:  @ ( Quelladdr Zieladdr Byteanzahl -- ) ( Source Destination Count -- )
   bx lr
 
 allocator_4fetch:
+    pushdaconstw 0x6800 @ ldr r0, [r0, #0] Opcode
+
+allocator_4fetch_anderer_opcode:
     push {lr}
     bl expect_one_element
-    pushdaconstw 0x6800 @ ldr r0, [r0, #0] Opcode
 
     @ Sollte TOS gerade eine Konstante sein, generiere sie so gut es geht.
     ldr r3, [r0, #offset_state_tos]
@@ -130,9 +132,11 @@ allocator_4fetch:
   bx lr
 
 allocator_4store:
+    pushdaconstw 0x6000 @ str r0, [r0, #0] Opcode
+
+allocator_4store_anderer_opcode:
     push {lr}
     bl expect_two_elements
-    pushdaconstw 0x6000 @ str r0, [r0, #0] Opcode
 
     @ Sollte TOS gerade eine Konstante sein, generiere sie so gut es geht.
     ldr r3, [r0, #offset_state_tos]

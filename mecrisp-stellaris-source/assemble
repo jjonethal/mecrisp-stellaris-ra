@@ -44,6 +44,10 @@ cd tm4c1294
 make clean all && ls -l *.bin && md5sum *.bin && cp *.bin ../../tm4c1294
 cd ..
 
+cd tm4c1294-ra
+make clean all && ls -l *.bin && md5sum *.bin && cp *.bin ../../tm4c1294-ra
+cd ..
+
 cd stm32f030f4
 make clean all && ls -l *.bin && md5sum *.bin && cp *.bin ../../stm32f030f4
 cd ..
