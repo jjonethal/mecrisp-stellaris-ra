@@ -22,4 +22,4 @@
 : t $5 $70 <<m v m! ;
 
 : LDMIA ( regs ptr -- instr )                 \ compile ldmia instruction
-  $8 lshift or $C800 or h, ;
+  $8 lshift or $C800 or h, immediate ;
