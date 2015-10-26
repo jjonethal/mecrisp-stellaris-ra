@@ -24,6 +24,7 @@
 @ Swiches for capabilities of this chip
 @ -----------------------------------------------------------------------------
 
+.equ registerallocator, 1
 @ .equ charkommaavailable, 1  Not available.
 
 @ -----------------------------------------------------------------------------
@@ -44,9 +45,9 @@
 
 @ Konstanten für die Größe und Aufteilung des Flash-Speichers
 
-.equ Kernschutzadresse,     0x00004000 @ Darunter wird niemals etwas geschrieben ! Mecrisp core never writes flash below this address.
-.equ FlashDictionaryAnfang, 0x00004000 @ 16 kb für den Kern reserviert...           16 kb Flash reserved for core.
-.equ FlashDictionaryEnde,   0x00040000 @ 240 kb Platz für das Flash-Dictionary     240 kb Flash available. Porting: Change this !
+.equ Kernschutzadresse,     0x00005000 @ Darunter wird niemals etwas geschrieben ! Mecrisp core never writes flash below this address.
+.equ FlashDictionaryAnfang, 0x00005000 @ 20 kb für den Kern reserviert...           20 kb Flash reserved for core.
+.equ FlashDictionaryEnde,   0x00040000 @ 236 kb Platz für das Flash-Dictionary     236 kb Flash available. Porting: Change this !
 .equ Backlinkgrenze,        RamAnfang  @ Ab dem Ram-Start.
 
 
