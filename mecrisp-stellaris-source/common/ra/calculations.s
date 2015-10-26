@@ -68,6 +68,7 @@ minus_allocator:
 
 1:  @ Minus ist nicht kommutativ, deswegen hier eine Optimierung weniger als bei Plus.
 
+    bl expect_nos_in_register
 
     @ Jetzt sind mindestens zwei Element in den Registern, also TOS und NOS gefüllt.
     @ Der Fall, dass beide Konstanten sind tritt nicht auf, weil er von der Faltung bereits erledigt wird.
@@ -144,20 +145,11 @@ minus_allocator:
 
     bl expect_tos_in_register
 
-    @ Sollte jetzt NOS eine Konstante sein, so wird sie geladen.
-
-    ldr r2, [r0, #offset_state_nos]
-    cmp r2, #constant
-    bne 5f
-      ldr r3, [r0, #offset_constant_nos] @ Hole die Konstante ab
-      bl generiere_konstante
-      movs r2, r3
-
-5:  @ Beide Argumente sind jetzt in Registern.
-
     @ Baue Quell- und "Ziel-" Register in den Opcode ein.
 
     lsls r1, #6  @ Erster Operand ist um 6 Stellen geschoben
+
+    ldr r2, [r0, #offset_state_nos]
     lsls r2, #3  @ Zweiter Operand ist um 3 Stellen geschoben
 
     @ Baue jetzt den Opcode zusammen:
@@ -489,21 +481,7 @@ divmod_plus_plus:
     push {lr}
     bl expect_two_elements
     bl expect_tos_in_register
-
-    @ Sollte jetzt NOS eine Konstante sein, so wird sie gleich in den richtigen Register geladen.
-
-    ldr r2, [r0, #offset_state_nos]
-    cmp r2, #constant
-    bne 5f
-      pushdatos
-      ldr tos, [r0, #offset_constant_nos] @ Hole die Konstante ab
-      bl get_free_register
-      str r3, [r0, #offset_state_nos]
-      pushda r3
-      movs r2, r3
-      bl registerliteralkomma
-
-5:  @ Beide Argumente sind jetzt in Registern.
+    bl expect_nos_in_register
 
     @ Baue den Opcode zusammen:
     pushdatos

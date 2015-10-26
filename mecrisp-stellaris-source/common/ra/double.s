@@ -48,7 +48,7 @@ ddrop_vektor:
     pop {pc}
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_foldable_4, "2swap" @ ( 4 3 2 1 -- 2 1 4 3 )
+  Wortbirne Flag_foldable_4|Flag_allocator, "2swap" @ ( 4 3 2 1 -- 2 1 4 3 )
 dswap:
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0, r1, r2}
@@ -60,14 +60,48 @@ dswap:
   movs tos, r1
   bx lr
 
+dswap_allocator:
+    push {lr} @ Spezialeinsprung des Registerallokators:
+
+    bl expect_four_elements
+
+    ldr r2, [r0, #offset_state_tos]
+    ldr r3, [r0, #offset_state_3os]
+    str r3, [r0, #offset_state_tos]
+    str r2, [r0, #offset_state_3os]
+
+    ldr r2, [r0, #offset_constant_tos]
+    ldr r3, [r0, #offset_constant_3os]
+    str r3, [r0, #offset_constant_tos]
+    str r2, [r0, #offset_constant_3os]
+
+    ldr r2, [r0, #offset_state_nos]
+    ldr r3, [r0, #offset_state_4os]
+    str r3, [r0, #offset_state_nos]
+    str r2, [r0, #offset_state_4os]
+
+    ldr r2, [r0, #offset_constant_nos]
+    ldr r3, [r0, #offset_constant_4os]
+    str r3, [r0, #offset_constant_nos]
+    str r2, [r0, #offset_constant_4os]
+
+    pop {pc}
+
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_foldable_2|Flag_inline, "2nip" @ ( 4 3 2 1 -- 2 1 )
+  Wortbirne Flag_foldable_2|Flag_inline|Flag_allocator, "2nip" @ ( 4 3 2 1 -- 2 1 )
 dnip:
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0, r1, r2}
   subs psp, #4
   str r0, [psp]
   bx lr
+
+    push {lr}
+    bl expect_four_elements
+    bl dswap_allocator
+    bl eliminiere_tos
+    bl eliminiere_tos
+    pop {pc}
 
 @ -----------------------------------------------------------------------------
   Wortbirne Flag_foldable_4, "2over" @ ( 4 3 2 1 -- 4 3 2 1 4 3 )
@@ -218,13 +252,14 @@ dnip:
   bx lr
 
 @------------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_foldable_2, "d2*"
+  Wortbirne Flag_inline|Flag_foldable_2|Flag_allocator, "d2*"
 @------------------------------------------------------------------------------
   ldr r0, [psp]
   adds r0, r0
   adcs tos, tos
   str r0, [psp]
   bx lr
+    b.n 1f
 
 @------------------------------------------------------------------------------
   Wortbirne Flag_visible|Flag_foldable_2, "dshr"
@@ -238,13 +273,31 @@ dnip:
   bx lr
 
 @------------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_foldable_2, "dshl"
+  Wortbirne Flag_inline|Flag_foldable_2|Flag_allocator, "dshl"
 @------------------------------------------------------------------------------
   ldr r0, [psp]
   adds r0, r0
   adcs tos, tos
   str r0, [psp]
   bx lr
+
+1:  push {lr}
+    bl expect_two_elements
+
+    bl expect_tos_in_register
+    bl make_tos_changeable
+
+    bl swap_allocator
+    bl expect_tos_in_register
+    bl make_tos_changeable
+
+    pushdaconst 0x0040 @ lsls r0, r0, #1
+    bl smalltworegisters
+
+    bl swap_allocator
+    pushdaconstw 0x4140 @ adcs r0, r0
+    bl smalltworegisters
+    pop {pc}
 
 @------------------------------------------------------------------------------
   Wortbirne Flag_visible|Flag_foldable_2, "dabs"
@@ -276,7 +329,7 @@ dnegate:
   bx lr
 
 @------------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_foldable_4, "d-" @ ( 1L 1H 2L 2H )
+  Wortbirne Flag_inline|Flag_foldable_4|Flag_allocator, "d-" @ ( 1L 1H 2L 2H )
 @------------------------------------------------------------------------------
   ldm psp!, {r0, r1, r2}
   subs r2, r0     @  Low-part first
@@ -287,8 +340,23 @@ dnegate:
   str r2, [psp]
   bx lr
 
+    push {lr}
+    bl expect_four_elements
+    bl rot_allocator @ ( 1L 2L 2H 1H )
+    bl expect_tos_in_register
+    bl make_tos_changeable
+    bl swap_allocator @ ( 1L 2L 1H 2H )
+    bl expect_tos_in_register
+    bl make_tos_changeable
+    bl dswap_allocator @ ( 1H 2H 1L 2L )
+    bl minus_allocator  @ ( 1H 2H L )
+    bl minusrot_allocator @ ( L 1H 2H )
+    pushdaconstw 0x4180 @ sbcs r0, r0
+    bl alloc_unkommutativ @ ( L H )
+    pop {pc}
+
 @------------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_foldable_4, "d+" @ ( 1L 1H 2L 2H )
+  Wortbirne Flag_inline|Flag_foldable_4|Flag_allocator, "d+" @ ( 1L 1H 2L 2H )
 @------------------------------------------------------------------------------
   ldm psp!, {r0, r1, r2}
   adds r2, r0
@@ -296,6 +364,21 @@ dnegate:
   subs psp, #4
   str r2, [psp]
   bx lr
+
+    push {lr}
+    bl expect_four_elements
+    bl rot_allocator @ ( 1L 2L 2H 1H )
+    bl expect_tos_in_register
+    bl make_tos_changeable
+    bl swap_allocator @ ( 1L 2L 1H 2H )
+    bl expect_tos_in_register
+    bl make_tos_changeable
+    bl dswap_allocator @ ( 1H 2H 1L 2L )
+    bl plus_allocator  @ ( 1H 2H L )
+    bl minusrot_allocator @ ( L 1H 2H )
+    pushdaconstw 0x4140 @ adcs r0, r0
+    bl alloc_kommutativ @ ( L H )
+    pop {pc}
 
 @------------------------------------------------------------------------------
   Wortbirne Flag_inline|Flag_foldable_1|Flag_allocator, "s>d" @ ( n - dl dh ) Single --> Double conversion
@@ -305,8 +388,12 @@ dnegate:
   bx lr
     push {lr}
     bl dup_allocator
-    bl alloc_nullkleiner
+    bl make_tos_changeable
+    pushdaconstw 0x17C0 @ asrs r0, r0, #31
+    bl chsmallplusminus
     pop {pc}
+
+ .ltorg
 
 @------------------------------------------------------------------------------
 @ --- Double star and slash ---
@@ -369,21 +456,7 @@ alloc_multiplikation_m3:
     push {lr}
     bl expect_two_elements
     bl expect_tos_in_register
-
-    @ Sollte jetzt NOS eine Konstante sein, so wird sie gleich in den richtigen Register geladen.
-
-    ldr r2, [r0, #offset_state_nos]
-    cmp r2, #constant
-    bne 5f
-      pushdatos
-      ldr tos, [r0, #offset_constant_nos] @ Hole die Konstante ab
-      bl get_free_register
-      str r3, [r0, #offset_state_nos]
-      pushda r3
-      movs r2, r3
-      bl registerliteralkomma
-
-5:  @ Beide Argumente sind jetzt in Registern.
+    bl expect_nos_in_register
 
     @ Baue den Opcode zusammen:
 
@@ -1116,7 +1189,7 @@ f_star: @ Signed multiply s31.32
     pop {pc}
 
 @------------------------------------------------------------------------------
-  Wortbirne Flag_foldable_4, "d<>" @ ( 1L 1H 2L 2H -- Flag )
+  Wortbirne Flag_foldable_4|Flag_allocator, "d<>" @ ( 1L 1H 2L 2H -- Flag )
 @------------------------------------------------------------------------------
   ldm psp!, {r0, r1, r2}
 
@@ -1130,8 +1203,13 @@ f_star: @ Signed multiply s31.32
 
   bx lr
 
+    push {lr}
+    bl dgleichungleich_common
+    bl allocator_unequal_zero
+    pop {pc}
+
 @------------------------------------------------------------------------------
-  Wortbirne Flag_foldable_4, "d=" @ ( 1L 1H 2L 2H -- Flag )
+  Wortbirne Flag_foldable_4|Flag_allocator, "d=" @ ( 1L 1H 2L 2H -- Flag )
 @------------------------------------------------------------------------------
   ldm psp!, {r0, r1, r2}
 
@@ -1143,5 +1221,20 @@ f_star: @ Signed multiply s31.32
   sbcs tos, tos
 
   bx lr
+
+    push {lr}
+    bl dgleichungleich_common
+    bl allocator_equal_zero
+    pop {pc}
+
+dgleichungleich_common:
+  push {lr}
+  bl expect_four_elements @ ( 1L 1H 2L 2H )
+  bl rot_allocator        @ ( 1L 2L 2H 1H )
+  bl xor_allocator        @ ( 1L 2L H )
+  bl minusrot_allocator   @ ( H 1L 2L )
+  bl xor_allocator        @ ( L H )
+  bl or_allocator         @ ( ? )
+  pop {pc}
 
   .ltorg

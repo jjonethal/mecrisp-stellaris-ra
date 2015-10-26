@@ -150,11 +150,9 @@ of_opcodiereinsprung:
 .endif
 
     @ Konstante zu groß. Lade die Konstante in einen freien Register:
-    pushda r2
-    bl get_free_register
-    movs r2, r3
-    pushda r3
-    bl registerliteralkomma
+
+    bl expect_tos_in_register
+    movs r2, r1
   
 2:@ TOS ist auch ein Register.
   lsls r2, #3

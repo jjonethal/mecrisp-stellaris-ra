@@ -87,34 +87,6 @@ r0_unfrei:
   bl registerliteralkomma
   pop {r0, r1, r2, pc}
 
-@ -----------------------------------------------------------------------------
-put_element_in_register: @ Element, welches bearbeitet werden soll, in r3 ankündigen
-@ -----------------------------------------------------------------------------
-  push {r1, r2, lr}
-  adds r3, r0
-  @ r3: Adresse des Elements
-  @ r2: Konstante
-
-  ldr r1, [r3] @ Element holen
-
-  cmp r1, #constant
-  bne 3f
-    @ Das Element ist eine Konstante. Prüfe, ob sie schon in r0 oder r1 bereitliegt:
-    ldr r2, [r3, #4] @ Hole die Konstante
-  
-  @ Dann generiere sie direkt in den gewünschten Register:
-  pushda r2 @ Konstante
-  
-  movs r1, r3 @ r3 freiräumen - kann vielleicht später noch die Register umsortieren
-
-  bl get_free_register
-  str r3, [r1]
-  pushda r3 @ Zielregister
-
-  bl registerliteralkomma
-
-3:pop {r1, r2, pc}
-
   .ltorg
 
 @ -----------------------------------------------------------------------------
@@ -282,6 +254,7 @@ expect_tos_in_register: @ Sorgt dafür, dass TOS auf jeden Fall einem Register l
     bne 4f
       ldr r3, [r0, #offset_constant_tos] @ Hole die Konstante ab
       bl generiere_veraenderliche_konstante
+      str r3, [r0, #offset_state_tos]
       movs r1, r3
 
 4:  @ Beide Argumente sind jetzt in Registern.
@@ -301,6 +274,26 @@ expect_nos_in_register: @ Sorgt dafür, dass NOS auf jeden Fall einem Register l
     bne 4f
       ldr r3, [r0, #offset_constant_nos] @ Hole die Konstante ab
       bl generiere_veraenderliche_konstante
+      str r3, [r0, #offset_state_nos]
+      movs r1, r3
+
+4:  @ Beide Argumente sind jetzt in Registern.
+  pop {pc}
+
+@ -----------------------------------------------------------------------------
+expect_3os_in_register: @ Sorgt dafür, dass 3OS auf jeden Fall einem Register liegt,
+                        @ welcher in r1 zurückgegeben wird.
+@ -----------------------------------------------------------------------------
+  push {lr}
+
+    @ Sollte jetzt 3OS eine Konstante sein, so wird sie geladen.
+
+    ldr r1, [r0, #offset_state_3os]
+    cmp r1, #constant
+    bne 4f
+      ldr r3, [r0, #offset_constant_3os] @ Hole die Konstante ab
+      bl generiere_veraenderliche_konstante
+      str r3, [r0, #offset_state_3os]
       movs r1, r3
 
 4:  @ Beide Argumente sind jetzt in Registern.

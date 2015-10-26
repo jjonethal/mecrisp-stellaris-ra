@@ -392,7 +392,12 @@
   - Contribution by Ulrich Hoffman:
       Examples for syscall usage in ARM Linux
 
-11.10.2015, Matthias Koch, Mecrisp-Stellaris 2.2.0 & RA 0.6 experimental 
+15.10.2015, Matthias Koch, Mecrisp-Stellaris 2.1.5
+
+  - Contribution by Абдрахимов Илья:
+      New target: STM L152 Discovery
+
+22.10.2015, Matthias Koch, Mecrisp-Stellaris 2.2.0 & RA 1.0 experimental 
 
   - Merged the experimental RA branch with the mainstream package
   

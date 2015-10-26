@@ -1,6 +1,8 @@
 
 compiletoflash
 
+here
+
 \ Sine and Cosine with Cordic algorithm
 
 : numbertable <builds does> swap 2 lshift + @ ;
@@ -101,3 +103,7 @@ pi 4,0 f/ cosine f. \ Displays cos(Pi/4)
 
   r> 0< if dnegate then
   2-foldable ;
+
+
+here swap -
+. \ Mecrisp-Stellaris 2.2.0: 1120 Bytes
