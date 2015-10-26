@@ -49,6 +49,7 @@
   orrs tos, r0
   bx lr
 
+or_allocator:
   pushdaconstw 0x4300 @ orrs r0, r0
   b.n alloc_kommutativ
 
@@ -60,6 +61,7 @@
   eors tos, r0
   bx lr
 
+xor_allocator:
   pushdaconstw 0x4040 @ eors r0, r0
   b.n alloc_kommutativ
 

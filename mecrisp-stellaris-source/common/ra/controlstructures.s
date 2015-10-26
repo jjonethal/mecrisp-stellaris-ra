@@ -225,59 +225,33 @@ allocator_nullsprungprobe:
       @ Der TOS-Register kann direkt untersucht und am Ende aus dem RA abgemeldet werden.
       @ Aufräumen am Ende, da wir zwei unterschiedliche Zweige anlegen werden.
 
+      @ Benötige also zwei Elemente: Eins, um den Vergleich anzulegen und eins, welches nachrücken soll.
 
-      @ Achtung: Was passiert, wenn wir hier mit vielen Konstanten hineinkommen ?
-      @          Schließlich wird IF nicht passend weggefaltet !
-      @ Vor dem Einsprung werden alle noch übrigen Faltkonstanten in den RA geschoben. Kein Problem.
+  bl expect_one_element @ Mindestens ein Element präparieren.
 
-    bl expect_one_element    @ Mindestens ein Element präparieren.
+  bl tidyup_register_allocator_5os @ Alle anderen in Richtung des kanonischen Stacks putzen und aufräumen.
+  bl tidyup_register_allocator_4os
+  bl tidyup_register_allocator_3os
 
-    @ Sichere den Inhalt und Zustand von TOS, damit ich anschließend eine passende Probe generieren kann.
-    ldr r1, [r0, #offset_state_tos]
-    ldr r2, [r0, #offset_constant_tos]
+  ldr r1, [r0, #offset_state_nos]
+  cmp r1, #constant
+  bne 1f
+    bl expect_nos_in_register @ Falls NOS eine Konstante ist, muss sie nun geladen werden
+1:bl expect_tos_in_register @ TOS wird beprobt und muss im Register sein
 
-    bl eliminiere_tos @ Verändert weder Register noch Flags ! Wirft TOS nur aus dem aktuellen Stackzustand heraus.
+  @ Vergleiche TOS mit Null - dafür muss eine Probe geschrieben werden !
 
-    bl tidyup_register_allocator_3os @ Lässt Register intakt, kann jedoch die Flags zerstören.
-    bl tidyup_register_allocator_nos @ Lässt Register intakt, kann jedoch die Flags zerstören.
+  pushdaconstw 0x2800 @ cmp r0, #0
+  lsls r1, #8 @ Register passend schieben
+  orrs tos, r1
+  bl hkomma
 
+  bl eliminiere_tos @ Wirf das gerade verglichene Element fort.
 
-    @ Da später die Flags unbedingt erhalten bleiben müssen, prüfe ich hier, ob das neue TOS eventuell eine Konstante sein könnte.
-    @ Diese zu generieren würde die Flags zerstören, deshalb lade ich sie schon jetzt in r0/r1, damit später nur noch ein Flag-erhaltendes MOV benutzt werden muss.
-    @ Im M3/M4 geht das auch eleganter, aber erstmal versuche ich, den M0 so gut wie möglich zu erobern.
+  bl tidyup_register_allocator @ Das nachrückende Element ist bereits ein Register - so kann hier nur noch ein MOV-Opcode geschrieben werden, der die Flags erhält.
 
-    ldr r3, [r0, #offset_state_tos]
-    cmp r3, #constant
-    bne 2f
-      @ Das neue TOS ist eine Konstante. Generiere sie also schon jetzt !
-      ldr r3, [r0, #offset_constant_tos]
-      bl generiere_konstante
-2:
-
-    @ Beprobe nun die Flags, die anschließend in dem bedingten Sprung ausgewertet werden.
-
-    @ War TOS ein Register oder eine (noch nirgendwo geschriebene) Konstante ? r2 und r3 sind jetzt entweder selbst TOS oder frei und nicht mehr belegt.
-
-    cmp r1, #constant
-    bne 4f
-      @ TOS war eine Konstante --> Eigentlich kann jetzt ein unbedingter Sprung folgen. Mache es aber erstmal doch über die Flags.
-      pushdaconstw 0x2200 @ movs r2, #0
-      cmp r2, #0
-      beq 3f
-      adds tos, #1 @ movs r2, #1   Eigentlich ist es egal, wie ich hier die Flags präpariere... Später wird einfach bei if mit Konstante ein unbedingter Sprung eingefügt.
-3:    bl hkomma
-      b 5f
-4:    @ TOS war ein Register
-
-      pushdaconstw 0x2800 @ cmp r0, #0
-      lsls r1, #8 @ Register passend schieben
-      orrs tos, r1
-      bl hkomma
-
-5:  @ Beprobung des alten TOS abgeschlossen.
-
-    bl tidyup_register_allocator_tos @ Zerstört möglicherweise Register, ändert jedoch die Flags nicht, sofern keine Konstante generiert werden muss.
   pop {pc}
+
 
 @------------------------------------------------------------------------------
   Wortbirne Flag_immediate_compileonly|Flag_allocator|Flag_Sprungschlucker, "if"
