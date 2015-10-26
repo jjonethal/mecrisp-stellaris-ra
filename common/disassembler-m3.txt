@@ -228,7 +228,12 @@
 
     $EA5F0676 of ." rors r6 r6 #1" endof
 
+    $F8470D04 of ." str r0 [ r7 #-4 ]!" endof
+    $F8471D04 of ." str r1 [ r7 #-4 ]!" endof
+    $F8472D04 of ." str r2 [ r7 #-4 ]!" endof
+    $F8473D04 of ." str r3 [ r7 #-4 ]!" endof
     $F8476D04 of ." str r6 [ r7 #-4 ]!" endof
+
     $F8576026 of ." ldr r6 [ r7 r6 lsl #2 ]" endof
     $F85D6C08 of ." ldr r6 [ sp #-8 ]" endof
 

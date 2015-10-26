@@ -18,6 +18,8 @@
 
 @ Register allocator infrastructure. Maintain stack model.
 
+.equ reg0, 0
+.equ reg1, 1
 .equ reg2, 2
 .equ reg3, 3
 .equ reg6, 6
@@ -49,7 +51,7 @@ nflush_faltkonstanten: @ Schiebe alle vorhandenen Faltkonstanten in den RA-Cache
     @ Ja, es ist noch mindestens eine Faltkonstante da.
     @ Die wird nun in den Stack eingefügt:
 
-    bl free_3os_element @ Als erstes hinten Platz schaffen.
+    bl free_5os_element @ Als erstes hinten Platz schaffen.
     bl elemente_einen_weiterrutschen_lassen
     bl nget_faltkonstante @ Gibt diese in r2 zurück, erniedrigt r3 von selbst
 
@@ -119,14 +121,14 @@ nget_faltkonstante: @ Hole von unten (!) eine Faltkonstante ab !
   pop {r0, r1, pc}
 
 @ -----------------------------------------------------------------------------
-free_3os_element: @ Sorgt dafür, dass zumindest 3OS geleert ist.
+free_5os_element: @ Sorgt dafür, dass zumindest 3OS geleert ist.
 @ -----------------------------------------------------------------------------
   push {r0, r1, lr}
-  ldr r0, =state_3os
+  ldr r0, =state_5os
 
   ldr r1, [r0]
   cmp r1, #unknown
-  beq 1f @ Wenn das 3OS-RA-Element gerade leer ist, brauche ich nichts mehr zu tun.
+  beq 1f @ Wenn das 5OS-RA-Element gerade leer ist, brauche ich nichts mehr zu tun.
     bl element_to_stack
 
 1:pop {r0, r1, pc}
@@ -134,15 +136,27 @@ free_3os_element: @ Sorgt dafür, dass zumindest 3OS geleert ist.
 @ -----------------------------------------------------------------------------
 elemente_einen_weiterrutschen_lassen:
 @ -----------------------------------------------------------------------------
+
+    @ 4OS --> 5OS
+    @ 3OS --> 4OS
     @ NOS --> 3OS
     @ TOS --> NOS
     @ TOS "leeren"
 
+    ldr r1, [r0, #offset_state_4os]
+    str r1, [r0, #offset_state_5os]
+    ldr r1, [r0, #offset_state_3os]
+    str r1, [r0, #offset_state_4os]
     ldr r1, [r0, #offset_state_nos]
     str r1, [r0, #offset_state_3os]
     ldr r1, [r0, #offset_state_tos]
     str r1, [r0, #offset_state_nos]
 
+
+    ldr r1, [r0, #offset_constant_4os]
+    str r1, [r0, #offset_constant_5os]
+    ldr r1, [r0, #offset_constant_3os]
+    str r1, [r0, #offset_constant_4os]
     ldr r1, [r0, #offset_constant_nos]
     str r1, [r0, #offset_constant_3os]
     ldr r1, [r0, #offset_constant_tos]
@@ -165,7 +179,7 @@ befreie_tos: @ Sorgt dafür, dass zumindest TOS frei wird zum Neubelegen.
   beq 3f @ Wenn das TOS-RA-Element gerade leer ist, brauche ich nichts mehr zu tun.
 
     @ Ansonsten muss ich nochmal dafür sorgen, dass TOS frei wird.
-    bl free_3os_element @ Als erstes hinten Platz schaffen.
+    bl free_5os_element @ Als erstes hinten Platz schaffen.
     bl elemente_einen_weiterrutschen_lassen
 
 3:@ Fertig. TOS ist bereit für neue Taten.
@@ -192,8 +206,18 @@ eliminiere_nos: @ Wert ist verbraucht, kann weg !
   ldr r1, [r0, #offset_constant_3os]
   str r1, [r0, #offset_constant_nos]
 
-  movs r1, #unknown
+  ldr r1, [r0, #offset_state_4os]
   str r1, [r0, #offset_state_3os]
+  ldr r1, [r0, #offset_constant_4os]
+  str r1, [r0, #offset_constant_3os]
+
+  ldr r1, [r0, #offset_state_5os]
+  str r1, [r0, #offset_state_4os]
+  ldr r1, [r0, #offset_constant_5os]
+  str r1, [r0, #offset_constant_4os]
+
+  movs r1, #unknown
+  str r1, [r0, #offset_state_5os]
 
   pop {r1, pc}
 
@@ -212,42 +236,39 @@ element_to_stack: @ Erwartet Zustandsvariable in r0
   cmp r1, #8 @ Register 0-7 lassen sich direkt opcodieren.
   bhs 1f
 
-    @ Platz auf dem Stack schaffen   ACHTUNG M3/M4: Das lässt sich in einen Opcode zusammenfassen !
-    pushdaconstw 0x3f04  @ subs psp, #4
-    bl hkomma
-
-    @ Element = Register    --> Register in Speicher
-    @write "ets r"
-    @pushda r1
-    @bl hexdot
-
-    pushdaconstw 0x6000|0 << 6|7 << 3|0  @ str r0, [psp, #0]
-    orrs tos, r1 @ Zielregister hinzuverodern
-    bl hkomma
-    pop {r3, pc}
+    movs r3, r1  @ Register in r3 bereitlegen zum Opcodieren.
+    b.n 2f
 
 1:@ Element = Konstante --> Konstante in Speicher
   cmp r1, #constant
   bne 1f @ Für den Fall eines unbekannten Elementes nichts tun
 
-    @writeln "ets const"
-
-    @ Platz auf dem Stack schaffen
-    pushdaconstw 0x3f04  @ subs psp, #4
-    bl hkomma
-
     @ Hole die Konstante, und prüfe, ob sie zur Laufzeit bereits in r0 oder r1 sein wird.
     ldr r3, [r0, #4] @ Konstante holen, stets 4 Bytes nach dem Zustand
     bl generiere_konstante
-    @ Passender Register für die Konstante in r3. Lade den Register auf den Stack !
+2:  @ Passender Register für die Konstante in r3. Lade den Register auf den Stack !
 
-    pushdaconstw 0x6000|0 << 6|7 << 3|0  @ str r0, [psp, #0]
-    orrs tos, r3 @ Passenden Register hinzuverodern
-    bl hkomma
+
+    .ifdef m0core
+
+      @ Platz auf dem Stack schaffen
+      pushdaconstw 0x3f04  @ subs psp, #4
+      bl hkomma
+
+      pushdaconstw 0x6000|0 << 6|7 << 3|0  @ str r0, [psp, #0]
+      orrs tos, r3 @ Passenden Register hinzuverodern
+      bl hkomma
+
+    .else
+
+      pushdatos
+      ldr tos, =0xF8470D04 @ str r0, [r7, #-4]!
+      orrs tos, tos, r3, lsl #12
+      bl reversekomma
+
+    .endif
 
 1: pop {r3, pc}
-
-
 
 
 @ -----------------------------------------------------------------------------
@@ -255,11 +276,28 @@ element_to_stack: @ Erwartet Zustandsvariable in r0
 tidyup_register_allocator: @ Generiert all die Opcodes, um den Stack wieder in Ordnung zu bringen
 @ -----------------------------------------------------------------------------
   push {lr}
+  bl tidyup_register_allocator_5os
+  bl tidyup_register_allocator_4os
   bl tidyup_register_allocator_3os
   bl tidyup_register_allocator_nos
   bl tidyup_register_allocator_tos
   pop {pc}
 
+@ -----------------------------------------------------------------------------
+tidyup_register_allocator_5os:
+@ -----------------------------------------------------------------------------
+  push {r0, r1, r2, r3, lr}
+  ldr r0, =state_5os
+  bl element_to_stack @ Idee: Hier gleich zwei Stackplätze reservieren, denn schließlich ist NOS auch belegt, wenn 3OS belegt ist.
+  pop {r0, r1, r2, r3, pc}
+
+@ -----------------------------------------------------------------------------
+tidyup_register_allocator_4os:
+@ -----------------------------------------------------------------------------
+  push {r0, r1, r2, r3, lr}
+  ldr r0, =state_4os
+  bl element_to_stack @ Idee: Hier gleich zwei Stackplätze reservieren, denn schließlich ist NOS auch belegt, wenn 3OS belegt ist.
+  pop {r0, r1, r2, r3, pc}
 
 @ -----------------------------------------------------------------------------
 tidyup_register_allocator_3os:
@@ -294,9 +332,9 @@ tidyup_register_allocator_tos:
   str r2, [r0, #offset_state_tos]
 
   @ Diese Fälle gibt es:
-  @ r2 und r3: movs Opcode generieren (Zerstört momentan noch die Flags)
+  @ r0, r1, r2 und r3: mov Opcode generieren (Erhält die Flags)
   @ r6: Nichts tun (Erhält die Flags)
-  @ Konstante: registerliteral direkt in r6 (oder notfalls aus r0/r1 generieren) (Zerstört die Flags, falls die Konstante neu generiert wird)
+  @ Konstante: registerliteral direkt in r6 (Zerstört die Flags, falls die Konstante neu generiert wird)
   @ unknown: Nachladen (Erhält die Flags)
 
   cmp r1, #unknown
@@ -307,7 +345,6 @@ tidyup_register_allocator_tos:
     b.n tidyup_finish
 1:
 
-
   cmp r1, #constant
   bne 2f
 @    writeln "Tidyup TOS Konstante"
@@ -315,37 +352,12 @@ tidyup_register_allocator_tos:
     @ Hier mal vereinfachen, später mit r0/r1-Berücksichtigung:
     ldr r3, [r0, #offset_constant_tos]
 
-    @ Finde heraus, ob diese Konstante schon in r0 oder r1 gerade enthalten ist.
-    ldr r1, [r0, #offset_state_r0]
-    cmp r1, #unknown
-    beq 4f @ Ist die Konstante gesetzt ?
-      ldr r1, [r0, #offset_constant_r0]
-      cmp r3, r1 @ Stimmt sie ?
-      bne 4f
-        pushdaconstw 0x4606 @ mov r6, r0
-        bl hkomma
-        b.n tidyup_finish
-4:
-
-    @ In r0 war die Konstante nicht, versuche es nochmal mit r1:
-    ldr r1, [r0, #offset_state_r1]
-    cmp r1, #unknown
-    beq 5f @ Ist die Konstante gesetzt ?
-      ldr r1, [r0, #offset_constant_r1]
-      cmp r3, r1 @ Stimmt sie ?
-      bne 5f
-        pushdaconstw 0x460E @ mov r6, r1
-        bl hkomma
-        b.n tidyup_finish
-5:
-
     @ Die Konstantenregister helfen gerade auch nicht weiter, muss den Wert direkt generieren.
     pushda r3
     pushdaconst 6
     bl registerliteralkomma @ Dies ist der Fall, in dem die Flags immer noch zerstört werden. ACHTUNG.
     b.n tidyup_finish
 2:
-
 
   @ Jetzt bleiben nur noch die Register übrig.
   cmp r1, #6  @ r6 ist wunderbar, dann ist nichts mehr zu tun.
@@ -372,12 +384,14 @@ init_register_allocator:
   ldr r0, =allocator_base
 
   movs r1, #unknown
-  str r1, [r0, #offset_state_r0]
-  str r1, [r0, #offset_state_r1]
+  str r1, [r0, #offset_state_5os]
+  str r1, [r0, #offset_state_4os]
   str r1, [r0, #offset_state_3os]
   str r1, [r0, #offset_state_nos]
 
-  movs r1, #reg6
+  str r1, [r0, #offset_state_r0]
+  
+  movs r1, #6
   str r1, [r0, #offset_state_tos]
 
   movs r1, #0

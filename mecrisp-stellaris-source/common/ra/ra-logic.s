@@ -21,6 +21,14 @@
 @ Sondereinsprünge, die für Memory Read-Modify-Write und die Schiebebefehle gebraucht werden.
 
 @ -----------------------------------------------------------------------------
+alloc_unkommutativ:
+@ -----------------------------------------------------------------------------
+  push {r0, r1, r2, r3, lr}
+alloc_unkommutativ_ohneregister:
+    bl expect_two_elements
+    b.n alloc_logic_gemeinsam
+
+@ -----------------------------------------------------------------------------
 alloc_kommutativ:
 @ -----------------------------------------------------------------------------
   push {r0, r1, r2, r3, lr}
@@ -49,6 +57,11 @@ alloc_kommutativ_ohneregister:
     bne 3f
       bl swap_allocator   @ Ab jetzt ist es TOS !
 3:
+
+
+alloc_logic_gemeinsam:
+
+    bl expect_nos_in_register @ Für den Fall, dass doch zwei Konstanten einlaufen.
 
     .ifndef m0core
       ldr r1, [r0, #offset_state_tos] @ Prüfe, ob TOS eine Konstante ist.
@@ -87,7 +100,12 @@ alloc_kommutativ_ohneregister:
             b.n m3_opcodieren
 5:
 
-
+          ldr r2, =0x4380 @ bics r0, r0      Opcode
+          cmp tos, r2
+          bne 6f
+            @ Ja, den Opcode kann ich verlängern und dann einfügen !
+            ldr tos, =0xF0300000 @ bics r0, r0, #Imm12
+            b.n m3_opcodieren
 
 6:    @ Sonderopcodierungen M3/M4 nicht möglich
     .endif
@@ -139,75 +157,5 @@ m3_opcodieren:
           bl reversekomma
           pop {r0, r1, r2, r3, pc}
 .endif
-
-@ -----------------------------------------------------------------------------
-alloc_unkommutativ:
-@ -----------------------------------------------------------------------------
-  push {r0, r1, r2, r3, lr}
-alloc_unkommutativ_ohneregister:
-    bl expect_two_elements
-
-    @ Jetzt sind mindestens zwei Element in den Registern, also TOS und NOS gefüllt.
-    @ Der Fall, dass beide Konstanten sind tritt nicht auf, weil er von der Faltung bereits erledigt wird.
-    @ Entweder zwei Register, oder eine Konstante und einen Register.
-
-    .ifndef m0core
-      ldr r1, [r0, #offset_state_tos] @ Prüfe, ob TOS eine Konstante ist.
-      cmp r1, #constant
-      bne 6f
-        @ TOS ist eine Konstante.
-        pushdatos
-        ldr tos, [r0, #offset_constant_tos]
-        bl twelvebitencoding @ Hole sie und prüfe, ob sie als Imm12 darstellbar ist.
-        ldmia psp!, {r1} @ Entweder die Bitmaske oder wieder die Konstante
-
-        cmp tos, #0
-        drop   @ Preserves Flags !
-        beq 6f
-          @ Die Konstante lässt sich als Imm12 darstellen - fein ! Bitmaske liegt in r1 bereit
-          @ Prüfe nun den Opcode, und ersetze ihn, falls möglich.
-
-          ldr r2, =0x4380 @ bics r0, r0      Opcode
-          cmp tos, r2
-          bne 6f
-            @ Ja, den Opcode kann ich verlängern und dann einfügen !
-            ldr tos, =0xF0300000 @ bics r0, r0, #Imm12
-            b.n m3_opcodieren
-
-6:    @ Sonderopcodierungen M3/M4 nicht möglich
-    .endif
-
-    @ Sorge dafür, dass NOS bereit zum Verändern wird.
-    bl nos_change_tos_away_later
-
-    bl expect_tos_in_register
-
-    @ Sollte jetzt NOS eine Konstante sein, so wird sie gleich in den richtigen Register geladen.
-    @ Schließlich trägt NOS nachher das Ergebnis.
-
-    ldr r2, [r0, #offset_state_nos]
-    cmp r2, #constant
-    bne 5f
-      pushdatos
-      ldr tos, [r0, #offset_constant_nos] @ Hole die Konstante ab
-      bl get_free_register
-      str r3, [r0, #offset_state_nos]
-      pushda r3
-      movs r2, r3
-      bl registerliteralkomma
-
-5:  @ Beide Argumente sind jetzt in Registern.
-
-    lsls r1, #3  @ Quellregister ist um 3 Stellen geschoben
-
-    @ Baue jetzt den Opcode zusammen:
-
-    orrs tos, r1
-    orrs tos, r2
-
-    bl hkomma
-
-    bl eliminiere_tos
-    pop {r0, r1, r2, r3, pc}
 
   .ltorg

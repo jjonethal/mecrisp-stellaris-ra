@@ -46,12 +46,6 @@ ramallot VariablenPointer, 4
 
 @ Variablen für den Registerallokator
 
-ramallot state_r0, 4
-ramallot constant_r0, 4
-
-ramallot state_r1, 4
-ramallot constant_r1, 4
-
 ramallot state_tos, 4
 ramallot constant_tos, 4
 
@@ -61,20 +55,34 @@ ramallot constant_nos, 4
 ramallot state_3os, 4
 ramallot constant_3os, 4
 
+ramallot state_4os, 4
+ramallot constant_4os, 4
+
+ramallot state_5os, 4
+ramallot constant_5os, 4
+
 ramallot sprungtrampolin, 4
 
-.equ allocator_base, state_r0
-.equ offset_state_r0,     0 * 4
-.equ offset_constant_r0,  1 * 4
-.equ offset_state_r1,     2 * 4
-.equ offset_constant_r1,  3 * 4
-.equ offset_state_tos,    4 * 4
-.equ offset_constant_tos, 5 * 4
-.equ offset_state_nos,    6 * 4
-.equ offset_constant_nos, 7 * 4
-.equ offset_state_3os,    8 * 4
-.equ offset_constant_3os, 9 * 4
+ramallot state_r0, 4
+ramallot constant_r0, 4
+
+.equ allocator_base, state_tos
+
+.equ offset_state_tos,    0 * 4
+.equ offset_constant_tos, 1 * 4
+.equ offset_state_nos,    2 * 4
+.equ offset_constant_nos, 3 * 4
+.equ offset_state_3os,    4 * 4
+.equ offset_constant_3os, 5 * 4
+.equ offset_state_4os,    6 * 4
+.equ offset_constant_4os, 7 * 4
+.equ offset_state_5os,    8 * 4
+.equ offset_constant_5os, 9 * 4
+
 .equ offset_sprungtrampolin, 10 * 4
+
+.equ offset_state_r0,    11 * 4
+.equ offset_constant_r0, 12 * 4
 
 .endif
 
@@ -135,7 +143,6 @@ CoreDictionaryAnfang: @ Dictionary-Einsprungpunkt setzen
   .ifdef registerallocator
   .include "../common/ra/ra-infrastructure.s"
   .include "../common/ra/ra-tools.s"
-  @ .include "../common/ra/ra-debug.s"
   .ltorg
 
   .include "../common/ra/double.s"

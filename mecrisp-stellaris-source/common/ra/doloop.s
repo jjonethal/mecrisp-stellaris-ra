@@ -346,6 +346,9 @@ gemeinsame_schleifenoptimierung: @ This is a common part for opcoding optimized 
   push {lr}
   bl push_lr_nachholen
   bl expect_two_elements
+
+  bl tidyup_register_allocator_5os
+  bl tidyup_register_allocator_4os
   bl tidyup_register_allocator_3os
 
   pushdaconstw 0xB430 @ push {rloopindex, rlooplimit}

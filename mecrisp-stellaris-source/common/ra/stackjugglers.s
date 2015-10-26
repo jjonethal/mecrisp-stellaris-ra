@@ -195,17 +195,9 @@ tuck:
   bx lr
 
     push {lr} @ Spezialeinsprung des Registerallokators:
-
-    bl expect_two_elements
-    bl free_3os_element
-    @ ( Frei NOS TOS ) TOS --> 3OS
-
-    ldr r1, [r0, #offset_state_tos]
-    str r1, [r0, #offset_state_3os]
-
-    ldr r1, [r0, #offset_constant_tos]
-    str r1, [r0, #offset_constant_3os]
-
+    bl expect_three_elements
+    bl dup_allocator
+    bl minusrot_allocator
     pop {pc}
 
 @ -----------------------------------------------------------------------------
@@ -256,6 +248,7 @@ minusrot:
   movs tos, r0
   bx lr
 
+minusrot_allocator:
     push {lr} @ Spezialeinsprung des Registerallokators:
     bl rot_allocator  @ -rot = rot rot
     bl rot_allocator

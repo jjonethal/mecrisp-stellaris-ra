@@ -234,16 +234,13 @@ prepare_single_compare:
   push {lr}
   bl expect_one_element
 
-  @ Es gibt maximal drei Elemente im RA. Eins wird am Ende rausfliegen.
-  @ Falls die beiden anderen Elemente also Konstanten sind, müssen sie jetzt generiert werden.
+  @ Es gibt maximal fünf Elemente im RA. Eins wird am Ende rausfliegen, eins kann nachrutschen.
+  @ Falls die anderen Elemente also Konstanten sind, müssen sie jetzt generiert werden.
 
-    movs r3, #offset_state_3os
-    bl put_element_in_register
-    @ 3OS ist unschädlich/unschädlich gemacht worden.
-
-    movs r3, #offset_state_nos
-    bl put_element_in_register
-    @ NOS ist unschädlich/unschädlich gemacht worden.
+    bl tidyup_register_allocator_5os
+    bl tidyup_register_allocator_4os
+    bl tidyup_register_allocator_3os
+    bl expect_nos_in_register
 
   pop {pc}
 
@@ -259,9 +256,13 @@ prepare_compare:
     @ Das Schieben / Umladen ist Flag-Erhaltend, nur das Generieren von Konstanten täte weh.
     @ Wenn also 3OS hier eine Konstante ist, wird ein freier Register angefordert und sie hineingeladen, damit später das Zurück-zum-kanonischen-Stack funktioniert.
 
-    movs r3, #offset_state_3os
-    bl put_element_in_register
-    @ 3OS ist unschädlich/unschädlich gemacht worden.
+
+    @ Jetzt gibt es bis zu fünf Elemente. Zwei werden am Ende herausfliegen, eins kann direkt ins neue TOS nachrücken.
+    @ Ich muss also die tieferen Elemente rausschreiben, bevor ich weitermache, weil im M0 das Rausschreiben Flags zerstört.
+
+    bl tidyup_register_allocator_5os
+    bl tidyup_register_allocator_4os
+    bl expect_3os_in_register
 
     @ Ist in TOS oder in NOS eine kleine Konstante ?
     ldr r2, [r0, #offset_state_nos]

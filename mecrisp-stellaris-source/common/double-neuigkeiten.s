@@ -23,32 +23,24 @@
 @------------------------------------------------------------------------------
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_foldable_2|Flag_allocator, "2dup" @ ( 2 1 -- 2 1 2 1 )
+  Wortbirne Flag_foldable_2, "2dup" @ ( 2 1 -- 2 1 2 1 )
 @ -----------------------------------------------------------------------------
   ldr r0, [psp]
   pushdatos
   subs psp, #4
   str r0, [psp]
   bx lr
-    push {lr}
-    bl over_allocator
-    bl over_allocator
-    pop {pc}
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_foldable_2|Flag_inline|Flag_allocator, "2drop" @ ( 2 1 -- )
+  Wortbirne Flag_foldable_2|Flag_inline, "2drop" @ ( 2 1 -- )
 ddrop_vektor:
 @ -----------------------------------------------------------------------------
   adds psp, #4
   drop
   bx lr
-    push {lr}
-    bl drop_allocator
-    bl drop_allocator
-    pop {pc}
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_foldable_4|Flag_allocator, "2swap" @ ( 4 3 2 1 -- 2 1 4 3 )
+  Wortbirne Flag_foldable_4, "2swap" @ ( 4 3 2 1 -- 2 1 4 3 )
 dswap:
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0, r1, r2}
@@ -60,48 +52,14 @@ dswap:
   movs tos, r1
   bx lr
 
-dswap_allocator:
-    push {lr} @ Spezialeinsprung des Registerallokators:
-
-    bl expect_four_elements
-
-    ldr r2, [r0, #offset_state_tos]
-    ldr r3, [r0, #offset_state_3os]
-    str r3, [r0, #offset_state_tos]
-    str r2, [r0, #offset_state_3os]
-
-    ldr r2, [r0, #offset_constant_tos]
-    ldr r3, [r0, #offset_constant_3os]
-    str r3, [r0, #offset_constant_tos]
-    str r2, [r0, #offset_constant_3os]
-
-    ldr r2, [r0, #offset_state_nos]
-    ldr r3, [r0, #offset_state_4os]
-    str r3, [r0, #offset_state_nos]
-    str r2, [r0, #offset_state_4os]
-
-    ldr r2, [r0, #offset_constant_nos]
-    ldr r3, [r0, #offset_constant_4os]
-    str r3, [r0, #offset_constant_nos]
-    str r2, [r0, #offset_constant_4os]
-
-    pop {pc}
-
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_foldable_2|Flag_inline|Flag_allocator, "2nip" @ ( 4 3 2 1 -- 2 1 )
+  Wortbirne Flag_foldable_2|Flag_inline, "2nip" @ ( 4 3 2 1 -- 2 1 )
 dnip:
 @ -----------------------------------------------------------------------------
   ldm psp!, {r0, r1, r2}
   subs psp, #4
   str r0, [psp]
   bx lr
-
-    push {lr}
-    bl expect_four_elements
-    bl dswap_allocator
-    bl eliminiere_tos
-    bl eliminiere_tos
-    pop {pc}
 
 @ -----------------------------------------------------------------------------
   Wortbirne Flag_foldable_4, "2over" @ ( 4 3 2 1 -- 4 3 2 1 4 3 )
@@ -110,7 +68,7 @@ dnip:
   pushdatos
   subs psp, #4
   str r0, [psp]
-  ldr tos, [psp, #12]
+  ldr tos, [psp, #12]  
   bx lr
 
 @ -----------------------------------------------------------------------------
@@ -171,28 +129,22 @@ dnip:
 @ --- Double return stack jugglers ---
 @------------------------------------------------------------------------------
 
-@  : p 3 4 .s 2>r .s 2r@ .s . . 2r> .s 2drop .s ;
+@  : p 3 4 .s 2>r .s 2r@ .s . . 2r> .s 2drop .s ; 
 @  : 2>r swap >r >r inline ;
 @  : 2r> r> r> swap inline ;
 
 @------------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator, "2>r" @ Puts the two top elements of stack on returnstack.
-                               @ Equal to swap >r >r
+  Wortbirne Flag_inline, "2>r" @ Puts the two top elements of stack on returnstack.
+                               @ Equal to swap >r >r 
 @------------------------------------------------------------------------------
   ldm psp!, {r0}
   push {r0}
   push {tos}
   ldm psp!, {tos}
   bx lr
-    push {lr}
-    bl push_lr_nachholen
-    bl swap_allocator
-    bl allocator_to_r
-    bl allocator_to_r
-    pop {pc}
 
 @------------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator, "2r>" @ Fetches back two elements of returnstack.
+  Wortbirne Flag_inline, "2r>" @ Fetches back two elements of returnstack.
                                @ Equal to r> r> swap
 @------------------------------------------------------------------------------
   pushdatos
@@ -201,40 +153,22 @@ dnip:
   subs psp, #4
   str r0, [psp]
   bx lr
-    push {lr}
-    bl push_lr_nachholen
-    bl allocator_r_from
-    bl allocator_r_from
-    bl swap_allocator
-    pop {pc}
 
 @------------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator, "2r@" @ Copies the two top elements of returnsteack
-@------------------------------------------------------------------------------
+  Wortbirne Flag_inline, "2r@" @ Copies the two top elements of returnsteack
+@------------------------------------------------------------------------------  
   pushdatos
   ldr tos, [sp, #4]
   pushdatos
   ldr tos, [sp]
   bx lr
-    push {lr}
-    bl push_lr_nachholen
-    pushdaconstw 0x9801
-    bl loop_j_allocator
-    bl rfetch_allocator
-    pop {pc}
 
 @------------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator, "2rdrop" @ Entfernt die obersten beiden Element des Returnstacks
+  Wortbirne Flag_visible|Flag_inline, "2rdrop" @ Entfernt die obersten beiden Element des Returnstacks
 @------------------------------------------------------------------------------
   add sp, #8
   bx lr
-    push {lr}
-    bl push_lr_nachholen
-    pushdaconstw 0xB002  @ Opcode add sp, #8
-    bl hkomma
-    pop {pc}
 
-  .ltorg
 
 @------------------------------------------------------------------------------
 @ --- Double calculations ---
@@ -252,14 +186,13 @@ dnip:
   bx lr
 
 @------------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_foldable_2|Flag_allocator, "d2*"
+  Wortbirne Flag_inline|Flag_foldable_2, "d2*"
 @------------------------------------------------------------------------------
   ldr r0, [psp]
   adds r0, r0
   adcs tos, tos
   str r0, [psp]
   bx lr
-    b.n 1f
 
 @------------------------------------------------------------------------------
   Wortbirne Flag_visible|Flag_foldable_2, "dshr"
@@ -273,31 +206,13 @@ dnip:
   bx lr
 
 @------------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_foldable_2|Flag_allocator, "dshl"
+  Wortbirne Flag_inline|Flag_foldable_2, "dshl"
 @------------------------------------------------------------------------------
   ldr r0, [psp]
   adds r0, r0
   adcs tos, tos
   str r0, [psp]
   bx lr
-
-1:  push {lr}
-    bl expect_two_elements
-
-    bl expect_tos_in_register
-    bl make_tos_changeable
-
-    bl swap_allocator
-    bl expect_tos_in_register
-    bl make_tos_changeable
-
-    pushdaconst 0x0040 @ lsls r0, r0, #1
-    bl smalltworegisters
-
-    bl swap_allocator
-    pushdaconstw 0x4140 @ adcs r0, r0
-    bl smalltworegisters
-    pop {pc}
 
 @------------------------------------------------------------------------------
   Wortbirne Flag_visible|Flag_foldable_2, "dabs"
@@ -329,7 +244,7 @@ dnegate:
   bx lr
 
 @------------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_foldable_4|Flag_allocator, "d-" @ ( 1L 1H 2L 2H )
+  Wortbirne Flag_inline|Flag_foldable_4, "d-" @ ( 1L 1H 2L 2H )
 @------------------------------------------------------------------------------
   ldm psp!, {r0, r1, r2}
   subs r2, r0     @  Low-part first
@@ -340,23 +255,8 @@ dnegate:
   str r2, [psp]
   bx lr
 
-    push {lr}
-    bl expect_four_elements
-    bl rot_allocator @ ( 1L 2L 2H 1H )
-    bl expect_tos_in_register
-    bl make_tos_changeable
-    bl swap_allocator @ ( 1L 2L 1H 2H )
-    bl expect_tos_in_register
-    bl make_tos_changeable
-    bl dswap_allocator @ ( 1H 2H 1L 2L )
-    bl minus_allocator  @ ( 1H 2H L )
-    bl minusrot_allocator @ ( L 1H 2H )
-    pushdaconstw 0x4180 @ sbcs r0, r0
-    bl alloc_unkommutativ @ ( L H )
-    pop {pc}
-
 @------------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_foldable_4|Flag_allocator, "d+" @ ( 1L 1H 2L 2H )
+  Wortbirne Flag_inline|Flag_foldable_4, "d+" @ ( 1L 1H 2L 2H )
 @------------------------------------------------------------------------------
   ldm psp!, {r0, r1, r2}
   adds r2, r0
@@ -364,36 +264,13 @@ dnegate:
   subs psp, #4
   str r2, [psp]
   bx lr
-
-    push {lr}
-    bl expect_four_elements
-    bl rot_allocator @ ( 1L 2L 2H 1H )
-    bl expect_tos_in_register
-    bl make_tos_changeable
-    bl swap_allocator @ ( 1L 2L 1H 2H )
-    bl expect_tos_in_register
-    bl make_tos_changeable
-    bl dswap_allocator @ ( 1H 2H 1L 2L )
-    bl plus_allocator  @ ( 1H 2H L )
-    bl minusrot_allocator @ ( L 1H 2H )
-    pushdaconstw 0x4140 @ adcs r0, r0
-    bl alloc_kommutativ @ ( L H )
-    pop {pc}
-
+  
 @------------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_foldable_1|Flag_allocator, "s>d" @ ( n - dl dh ) Single --> Double conversion
+  Wortbirne Flag_inline|Flag_foldable_1, "s>d" @ ( n - dl dh ) Single --> Double conversion
 @------------------------------------------------------------------------------
   pushdatos
   movs tos, tos, asr #31    @ Turn MSB into 0xffffffff or 0x00000000
   bx lr
-    push {lr}
-    bl dup_allocator
-    bl make_tos_changeable
-    pushdaconstw 0x17C0 @ asrs r0, r0, #31
-    bl chsmallplusminus
-    pop {pc}
-
- .ltorg
 
 @------------------------------------------------------------------------------
 @ --- Double star and slash ---
@@ -433,11 +310,11 @@ um_star:
     lsrs tos, #16 @ Shift accordingly
     adds tos, r3  @ Add together
     bx lr
-
+   
   .else
 
 @------------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_foldable_2|Flag_allocator, "um*"
+  Wortbirne Flag_inline|Flag_foldable_2, "um*"
   @ Multiply unsigned 32*32 = 64
   @ ( u u -- ud )
 um_star:
@@ -447,43 +324,6 @@ um_star:
     umull r0, tos, r0, tos @ Unsigned long multiply 32*32=64
     str r0, [psp]
     bx lr
-
-    pushdatos
-    ldr tos, =0xFBA00000
-
-alloc_multiplikation_m3:
-
-    push {lr}
-    bl expect_two_elements
-    bl expect_tos_in_register
-    bl expect_nos_in_register
-
-    @ Baue den Opcode zusammen:
-
-    ldr r1, [r0, #offset_state_tos]
-    orrs tos, r1 @ Quellregister 1 hinzufügen
-
-    ldr r1, [r0, #offset_state_nos]
-    orrs tos, tos, r1, lsl #16 @ Quellregister 2 hinzufügen
-
-    @ Zweimal den Register wechseln !
-    bl eliminiere_tos
-    bl eliminiere_tos
-
-          bl befreie_tos
-          bl get_free_register
-          str r3, [r0, #offset_state_tos]
-
-    orrs tos, tos, r3, lsl #12 @ Zielregister Low hinzufügen
-
-          bl befreie_tos
-          bl get_free_register
-          str r3, [r0, #offset_state_tos]
-
-    orrs tos, tos, r3, lsl #8 @ Zielregister High hinzufügen
-
-    bl reversekomma
-    pop {pc}
 
   .endif
 
@@ -526,19 +366,16 @@ m_star:
   .else
 
 @------------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_foldable_2|Flag_allocator, "m*"
+  Wortbirne Flag_inline|Flag_foldable_2, "m*"
   @ Multiply signed 32*32 = 64
   @ ( n n -- d )
 m_star:
 @------------------------------------------------------------------------------
+
     ldr r0, [psp]
     smull r0, tos, r0, tos @ Signed long multiply 32*32=64
     str r0, [psp]
     bx lr
-
-    pushdatos
-    ldr tos, =0xFB800000
-    b.n alloc_multiplikation_m3
 
   .endif
 
@@ -549,7 +386,7 @@ ud_short_star:
          @ ( ud1 ud2 -- ud )
 @------------------------------------------------------------------------------
   @ Multiply r1:r0 and r3:r2 and return the product in r1:r0
-  @          tos w      x y
+  @          tos w      x y  
 
 @ r1:r0  r3:r2 -->  r1:r0
 @ tos r0 r1 r2 -->  tos r0
@@ -559,7 +396,7 @@ ud_short_star:
 	muls	tos, r2        @ High-1 * Low-2 --> tos
 	muls	r1, r0         @ High-2 * Low-1 --> r1
 	adds	tos, r1        @                    Sum into tos
-
+	
 	lsrs	r1, r0, #16
 	lsrs	r3, r2, #16
 	muls	r1, r3
@@ -571,13 +408,13 @@ ud_short_star:
 	muls	r1, r2
 	muls	r3, r0
 	muls	r0, r2
-
+	
 	movs	r2, #0
 	adds	r1, r3
 	adcs	r2, r2
 	lsls	r2, #16
 	adds	tos, r2
-
+	
 	lsls	r2, r1, #16
 	lsrs	r1, #16
 	adds	r0, r2
@@ -929,7 +766,7 @@ f_star: @ Signed multiply s31.32
 1:@ + * ?
     bl dswap
     movs r0, tos, asr #31 @ Turn MSB into 0xffffffff or 0x00000000
-    beq 3b @ + * +
+    beq 3b @ + * +  
 
     bl dnegate
 
@@ -983,7 +820,7 @@ f_star: @ Signed multiply s31.32
 @------------------------------------------------------------------------------
 
 @------------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator, "2!" @ Store ( d addr -- )
+  Wortbirne Flag_inline, "2!" @ Store ( d addr -- )
 @------------------------------------------------------------------------------
   ldmia psp!, {r1, r2}
   str r1, [tos]
@@ -991,66 +828,14 @@ f_star: @ Signed multiply s31.32
   drop
   bx lr
 
-    push {lr}
-    bl expect_three_elements
-
-    ldr r1, [r0, #offset_state_tos]
-    ldr r2, [r0, #offset_constant_tos]
-    push {r1, r2}
-
-    bl allocator_4store @ High-Teil wegstauen.
-
-    @ Das Schreiben sollte keinen der Register mit Ausnahme der Konstantenregister verändern.
-    bl befreie_tos
-    pop {r1, r2}
-    str r1, [r0, #offset_state_tos]
-
-    cmp r1, #constant
-    beq 1f
-      @ Tos ist im Register - dazu kann ich dann einfach einen anderen Opcode verwenden:
-      pushdaconstw 0x6040 @ str r0, [r0, #4] Opcode
-      bl allocator_4store_anderer_opcode
-      pop {pc}
-
-1:  @ Tos ist eine Konstante ! Wie fein :-)
-    adds r2, #4
-    str r2, [r0, #offset_constant_tos]
-    bl allocator_4store
-    pop {pc}
-
 @------------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_allocator, "2@" @ Fetch ( addr -- d )
+  Wortbirne Flag_inline, "2@" @ Fetch ( addr -- d )
 @------------------------------------------------------------------------------
   subs psp, #4
   ldr r0, [tos, #4]
   str r0, [psp]
   ldr tos, [tos]
   bx lr
-
-    push {lr}
-    bl dup_allocator
-
-    ldr r1, [r0, #offset_state_tos]
-    cmp r1, #constant
-    beq 1f
-      @ TOS ist ein Register.
-      @ So wird es Zeit für einen Register, #4 Opcode !
-      pushdaconstw 0x6840 @ ldr r0, [r0, #4] Opcode
-      bl allocator_4fetch_anderer_opcode
-
-      bl swap_allocator
-      bl allocator_4fetch
-      pop {pc}
-
-1:  @ TOS ist eine Konstante. Kann sie also wunderbar weiterverwenden ! Ergibt aber einzeln eine lange Aufräum-Sequenz, falls r6 nicht frei ist.
-    ldr r1, [r0, #offset_constant_tos]
-    adds r1, #4
-    str r1, [r0, #offset_constant_tos]
-    bl allocator_4fetch
-    
-    bl swap_allocator
-    bl allocator_4fetch
-    pop {pc}
 
 @------------------------------------------------------------------------------
 @ --- Double comparisions ---
@@ -1162,19 +947,14 @@ f_star: @ Signed multiply s31.32
 
 
 @------------------------------------------------------------------------------
-  Wortbirne Flag_inline|Flag_foldable_2|Flag_allocator, "d0<" @ ( 1L 1H -- Flag ) Is double number negative ?
+  Wortbirne Flag_inline|Flag_foldable_2, "d0<" @ ( 1L 1H -- Flag ) Is double number negative ?
 @------------------------------------------------------------------------------
   adds psp, #4
   movs TOS, TOS, asr #31    @ Turn MSB into 0xffffffff or 0x00000000
   bx lr
 
-    push {lr}
-    bl nip_allocator
-    bl alloc_nullkleiner
-    pop {pc}
-
 @------------------------------------------------------------------------------
-  Wortbirne Flag_foldable_2|Flag_inline|Flag_allocator, "d0=" @ ( 1L 1H -- Flag )
+  Wortbirne Flag_foldable_2|Flag_inline, "d0=" @ ( 1L 1H -- Flag )
 @------------------------------------------------------------------------------
   ldm psp!, {r0}
   orrs tos, r0
@@ -1182,14 +962,8 @@ f_star: @ Signed multiply s31.32
   sbcs tos, tos
   bx lr
 
-    push {lr}
-    pushdaconstw 0x4300 @ orrs r0, r0      Opcode
-    bl alloc_kommutativ
-    bl allocator_equal_zero
-    pop {pc}
-
 @------------------------------------------------------------------------------
-  Wortbirne Flag_foldable_4|Flag_allocator, "d<>" @ ( 1L 1H 2L 2H -- Flag )
+  Wortbirne Flag_foldable_4, "d<>" @ ( 1L 1H 2L 2H -- Flag )
 @------------------------------------------------------------------------------
   ldm psp!, {r0, r1, r2}
 
@@ -1203,13 +977,8 @@ f_star: @ Signed multiply s31.32
 
   bx lr
 
-    push {lr}
-    bl dgleichungleich_common
-    bl allocator_unequal_zero
-    pop {pc}
-
 @------------------------------------------------------------------------------
-  Wortbirne Flag_foldable_4|Flag_allocator, "d=" @ ( 1L 1H 2L 2H -- Flag )
+  Wortbirne Flag_foldable_4, "d=" @ ( 1L 1H 2L 2H -- Flag )
 @------------------------------------------------------------------------------
   ldm psp!, {r0, r1, r2}
 
@@ -1222,19 +991,3 @@ f_star: @ Signed multiply s31.32
 
   bx lr
 
-    push {lr}
-    bl dgleichungleich_common
-    bl allocator_equal_zero
-    pop {pc}
-
-dgleichungleich_common:
-  push {lr}
-  bl expect_four_elements @ ( 1L 1H 2L 2H )
-  bl rot_allocator        @ ( 1L 2L 2H 1H )
-  bl xor_allocator        @ ( 1L 2L H )
-  bl minusrot_allocator   @ ( H 1L 2L )
-  bl xor_allocator        @ ( L H )
-  bl or_allocator         @ ( ? )
-  pop {pc}
-
-  .ltorg
