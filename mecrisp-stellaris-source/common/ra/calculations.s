@@ -54,6 +54,8 @@ plus_allocator:
   subs tos, r0, tos
   bx lr
 
+minus_allocator:
+
     push {lr}
     bl expect_two_elements
 
@@ -246,6 +248,7 @@ chsmallplusminus:
   rsbs tos, tos, #0
   bx lr
 
+allocator_negate:
     pushdaconstw 0x4240 @ rsbs r0, r0, #0
 
 smalltworegisters:
@@ -324,34 +327,18 @@ allocator_not:
   eors tos, r0
   bx lr
 
-    push {lr}
+    push {lr} @ Eine Konstante wären weggefaltet worden, also muss TOS jetzt ein Register sein.
     bl expect_one_element
-    bl make_tos_changeable
-
-    @ Einen freien Register brauchen wir dafür, auch, wenn eigentlich kein neues Stackelement gebraucht wird.
-    @ Soll ich nicht lieber den Konstantenregister dafür vernichten ?
-    @ Das könnte auch in memory.s passieren, allerdings wird es dort etwas schwieriger.
-    movs r1, #unknown
-    str r1, [r0, #offset_state_r0]
-
-    @ Wenn ich hier einlaufe, ist TOS bereits ein Register, sonst hätte die Faltung es erledigt.
-    @ Bastele nun die ABS-Opcodes zusammen:
+    pushdaconstw 0x2800 @ cmp r0, #0
     ldr r1, [r0, #offset_state_tos]
-
-    pushdaconstw 0x17C0 @ asrs r0 r0 #1F
-    lsls r2, r1, #3
-    orrs tos, r2
-    bl hkomma
-
-    pushdaconstw 0x1800 @ adds r0, r0, r0
-    orrs tos, r1
-    orrs tos, r2
-    bl hkomma
-
-    pushdaconstw 0x4040 @ eors r0 r0
+    lsls r1, #8
     orrs tos, r1
     bl hkomma
-    
+
+    pushdaconstw 0xD500 @ bpl
+    bl hkomma
+
+    bl allocator_negate
     pop {pc}
 
 @ -----------------------------------------------------------------------------

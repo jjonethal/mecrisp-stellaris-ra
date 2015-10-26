@@ -234,8 +234,16 @@ prepare_single_compare:
   push {lr}
   bl expect_one_element
 
-  @ Es gibt maximal drei Elemente im RA. Eins wird am Ende rausfliegen.
-  @ Falls die beiden anderen Elemente also Konstanten sind, müssen sie jetzt generiert werden.
+  @ Es gibt maximal fünf Elemente im RA. Eins wird am Ende rausfliegen.
+  @ Falls die anderen Elemente also Konstanten sind, müssen sie jetzt generiert werden.
+
+    movs r3, #offset_state_5os
+    bl put_element_in_register
+    @ 5OS ist unschädlich/unschädlich gemacht worden.
+
+    movs r3, #offset_state_4os
+    bl put_element_in_register
+    @ 4OS ist unschädlich/unschädlich gemacht worden.
 
     movs r3, #offset_state_3os
     bl put_element_in_register
@@ -258,6 +266,13 @@ prepare_compare:
     @ Kontrollstrukturen, die ein Sprungopcode aufnehmen und über die Flags kommunizieren, müssen sowieso zurück zum kanonischen Stack.
     @ Das Schieben / Umladen ist Flag-Erhaltend, nur das Generieren von Konstanten täte weh.
     @ Wenn also 3OS hier eine Konstante ist, wird ein freier Register angefordert und sie hineingeladen, damit später das Zurück-zum-kanonischen-Stack funktioniert.
+
+
+    @ Jetzt gibt es bis zu fünf Elemente. Zwei werden am Ende herausfliegen, eins kann direkt ins neue TOS nachrücken.
+    @ Ich muss also die tieferen Elemente rausschreiben, bevor ich weitermache, weil im M0 das Rausschreiben Flags zerstört.
+
+    bl tidyup_register_allocator_5os
+    bl tidyup_register_allocator_4os
 
     movs r3, #offset_state_3os
     bl put_element_in_register

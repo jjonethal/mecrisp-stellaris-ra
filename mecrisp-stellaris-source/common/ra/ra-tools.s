@@ -19,71 +19,73 @@
 @ Register allocator tools to work with the stack model.
 
 @ -----------------------------------------------------------------------------
-generiere_konstante: @ Nimmt Konstante in r3 entgegen, generiert wenn nötig passende Opcodes
+generiere_veraenderliche_konstante:
+generiere_konstante:       @ Nimmt Konstante in r3 entgegen, generiert wenn nötig passende Opcodes
                            @ und gibt den Register in r3 zurück, in der sie daraufhin enthalten ist.
 @ -----------------------------------------------------------------------------
   push {r0, r1, r2, lr}
-
-  bl generiere_konstante_common
-
-  str r3, [r0, #offset_constant_r0]
-  movs r1, #constant
-  str r1, [r0, #offset_state_r0]
-
-  movs r3, #0
-  pushda r3
+  pushda r3 @ Die Konstante
+  bl get_free_register @ Einen Register nehmen, der gerade nicht im RA angemeldet ist.
+  pushda r3 @ Das ist jetzt der Register, wo sie hinein soll
   bl registerliteralkomma
   pop {r0, r1, r2, pc}
 
 @ -----------------------------------------------------------------------------
-generiere_adresskonstante: @ Nimmt Konstante in r3 entgegen, generiert wenn nötig passende Opcodes
-                           @ und gibt den Register in r3 zurück, in der sie daraufhin enthalten ist.
+generiere_adresskonstante: @ Gleiche Schnittstelle, doch bevorzugt in r0.
 @ -----------------------------------------------------------------------------
+
   push {r0, r1, r2, lr}
 
-  bl generiere_konstante_common
-
-  str r3, [r0, #offset_constant_r1]
-  movs r1, #constant
-  str r1, [r0, #offset_state_r1]
-
-  movs r3, #1
-  pushda r3
-  bl registerliteralkomma
-  pop {r0, r1, r2, pc}
-
-@ -----------------------------------------------------------------------------
-generiere_konstante_common:
-@ -----------------------------------------------------------------------------
-
-  ldr r0, =allocator_base
-
-  @ Prüfe, ob die Konstante schon in r0 liegt. Dann bin ich fertig,
+  @ Probe, ob die Konstante in r0 bereitliegt
   ldr r1, [r0, #offset_state_r0]
-  cmp r1, #unknown
-  beq 1f
+  cmp r1, #constant
+  bne 1f
     ldr r1, [r0, #offset_constant_r0]
     cmp r1, r3
     bne 1f
-      movs r3, #0
+      movs r3, #0 @ Wenn ja, fein ! Register melden, Rücksprung.
       pop {r0, r1, r2, pc}
-1:@ Die gesuchte Konstante ist nicht in r0.
+1:
 
+  @ Ist r0 frei ?
 
-  @ Prüfe, ob die Konstante schon in r1 liegt. Dann bin ich fertig,
-  ldr r1, [r0, #offset_state_r1]
-  cmp r1, #unknown
-  beq 1f
-    ldr r1, [r0, #offset_constant_r1]
-    cmp r1, r3
-    bne 1f
-      movs r3, #1
-      pop {r0, r1, r2, pc}
-1:@ Die gesuchte Konstante ist nicht in r1.
+  ldr r1, [r0, #offset_state_tos]
+  cmp r1, #0
+  beq r0_unfrei
+  
+  ldr r1, [r0, #offset_state_nos]
+  cmp r1, #0
+  beq r0_unfrei
 
-  @ Die Konstante muss generiert werden. Springe also zurück:
-  pushda r3
-  bx lr
+  ldr r1, [r0, #offset_state_3os]
+  cmp r1, #0
+  beq r0_unfrei
+
+  ldr r1, [r0, #offset_state_4os]
+  cmp r1, #0
+  beq r0_unfrei
+
+  ldr r1, [r0, #offset_state_5os]
+  cmp r1, #0
+  beq r0_unfrei
+
+  @ r0 ist frei.
+
+    str r3, [r0, #offset_constant_r0]
+    pushda r3 @ Die Konstante
+    pushdaconst 0 @ Das ist jetzt der Register, wo sie hinein soll
+    bl registerliteralkomma
+    movs r1, #constant
+    str r1, [r0, #offset_state_r0]
+    movs r3, #0
+    pop {r0, r1, r2, pc}
+
+r0_unfrei:
+  pushda r3 @ Die Konstante
+  bl get_free_register @ Einen Register nehmen, der gerade nicht im RA angemeldet ist.
+  pushda r3 @ Das ist jetzt der Register, wo sie hinein soll
+  bl registerliteralkomma
+  pop {r0, r1, r2, pc}
 
 @ -----------------------------------------------------------------------------
 put_element_in_register: @ Element, welches bearbeitet werden soll, in r3 ankündigen
@@ -100,38 +102,6 @@ put_element_in_register: @ Element, welches bearbeitet werden soll, in r3 ankün
     @ Das Element ist eine Konstante. Prüfe, ob sie schon in r0 oder r1 bereitliegt:
     ldr r2, [r3, #4] @ Hole die Konstante
   
-  @ Prüfe, ob die Konstante schon in r0 liegt. Dann bin ich fertig,
-  ldr r1, [r0, #offset_state_r0]
-  cmp r1, #unknown
-  beq 1f
-    ldr r1, [r0, #offset_constant_r0]
-    cmp r1, r2
-    bne 1f
-      @ Konstante ist schon in r0:
-      pushdaconstw 0x4600 @ mov r0, r0
-      b 2f
-
-1:@ Die gesuchte Konstante ist nicht in r0.
-
-
-  @ Prüfe, ob die Konstante schon in r1 liegt. Dann bin ich fertig,
-  ldr r1, [r0, #offset_state_r1]
-  cmp r1, #unknown
-  beq 1f
-    ldr r1, [r0, #offset_constant_r1]
-    cmp r1, r2
-    bne 1f
-      @ Konstante ist schon in r1:
-      pushdaconstw 0x4600 | 1 << 3 @ mov r0, r1
-
-2:    bl get_free_register
-      str r3, [r2]
-      orrs tos, r3
-      bl hkomma
-      pop {r1, r2, pc}
-
-1:@ Die gesuchte Konstante ist nicht in r1.
-
   @ Dann generiere sie direkt in den gewünschten Register:
   pushda r2 @ Konstante
   
@@ -150,130 +120,152 @@ put_element_in_register: @ Element, welches bearbeitet werden soll, in r3 ankün
 @ -----------------------------------------------------------------------------
 get_free_register: @ Gibt den Register in r3 zurück. Setzt noch keinen Zustand.
 @ -----------------------------------------------------------------------------
-  push {r0, r1, r2, lr}
+  push {r0, r1, r2, r4, r5, lr}
 
   ldr r0, =allocator_base
   ldr r1, [r0, #offset_state_tos]
   ldr r2, [r0, #offset_state_nos]
   ldr r3, [r0, #offset_state_3os]
+  ldr r4, [r0, #offset_state_4os]
+  ldr r5, [r0, #offset_state_5os]
 
-  @ Prüfe r6 auf Freiheit:
-  cmp r1, #6
+  movs r0, #6 @ Prüfe zunächst r6 auf Freiheit:
+  bl get_free_register_intern
+
+  movs r0, #3 @ Anschließend die ganzen anderen Register:
+  bl get_free_register_intern
+
+  movs r0, #2 @ Anschließend die ganzen anderen Register:
+  bl get_free_register_intern
+
+  movs r0, #1 @ Anschließend die ganzen anderen Register:
+  bl get_free_register_intern
+
+  movs r3, #0 @ Nur noch r0 ist übrig geblieben
+  movs r1, #unknown @ Muss die Adresskonstantenspeicherstelle wieder freigeben...
+  str r1, [r0, #offset_state_r0]
+  pop {r0, r1, r2, r4, r5, pc}
+
+get_free_register_intern: @ Welcher Register geprüft werden soll, steht in r0. Rückgabe in r3.
+  cmp r1, r0
   beq 1f
-  cmp r2, #6
+  cmp r2, r0
   beq 1f
-  cmp r3, #6
+  cmp r3, r0
   beq 1f
-    @ r6 ist frei :-)
-    movs r3, #6
-    pop {r0, r1, r2, pc}
-1:
-
-  @ r6 ist schon vergeben. r3 ?
-  cmp r1, #3
-  beq 2f
-  cmp r2, #3
-  beq 2f
-  cmp r3, #3
-  beq 2f
-
-    @ r3 ist frei :-)
-    movs r3, #3
-    pop {r0, r1, r2, pc}
-2:
-
-  @ r6 und r3 sind vergeben, so bleibt nur noch r2 übrig.
-  movs r3, #2
-  pop {r0, r1, r2, pc}
-
+  cmp r4, r0
+  beq 1f
+  cmp r5, r0
+  beq 1f   
+    movs r3, r0
+    pop {r0, r1, r2, r4, r5, pc}
+1:bx lr
 
 @ -----------------------------------------------------------------------------
-fill_element_from_stack: @ Füllt eins der Cacheelemente TOS, NOS oder 3OS vom Stack nach, falls darin Leere herrscht.
-                         @ Erwartet Zustandsvariable in r0.
-@ -----------------------------------------------------------------------------
-  push {lr}
-  @writeln "Fill-element aus dem Stack"
-
-  @ Welcher Register ist frei ? Eventuelle Konstanten wären jetzt schon bearbeitet, muss also nur r0 behalten.
-  bl get_free_register
-  str r3, [r0] @ Element mit diesem Register als belegt markieren
-
-  movs r1, #1
-  lsls r1, r3 @ Registermaske für den LDM-Opcode generieren
-
+erstes_element_belegen:
   pushdaconstw 0xCF00 @ ldm r7!, { ... }
-  orrs tos, r1
-  bl hkomma
-  pop {pc}
+element_belegen: @ Nimmt das zu belegende Element aus r2.
+  push {lr}
+  ldr r1, [r0, r2]
+  cmp r1, #unknown
+  bne 1f @ Wenn es bereits belegt ist, muss ich hier nichts unternehmen.
 
+    @ Lade es nach !
+    bl get_free_register
+    str r3, [r0, r2]
+
+    movs r1, #1
+    lsls r1, r3
+    orrs tos, r1
+
+1:pop {pc}
 
 @ -----------------------------------------------------------------------------
 expect_one_element: @ Sorgt dafür, dass mindestens ein Element bereitliegt.
 @ -----------------------------------------------------------------------------
-  push {r0, r1, r2, r3, lr}
+  push {lr}
 
   @ Kernfrage besteht darin: Ist TOS belegt oder nicht ?
   @ Wenn ja, fertig. Wenn nein, sind auch NOS und 3OS leer, also TOS direkt vom Stack nachfüllen.
 
-  ldr r0, =allocator_base
   ldr r1, [r0, #offset_state_tos]
   cmp r1, #unknown
   bne 1f @ Wenn schon etwas in TOS enthalten ist, bin ich fertig.
 
-    ldr r0, =state_tos
-    bl fill_element_from_stack
-
-1: pop {r0, r1, r2, r3, pc}
-
+    movs r2, #offset_state_tos
+    bl erstes_element_belegen
+  
+    bl hkomma
+1:pop {pc}
 
 @ -----------------------------------------------------------------------------
 expect_two_elements: @ Sorgt dafür, dass mindestens zwei Elemente bereitliegen.
 @ -----------------------------------------------------------------------------
-  push {r0, r1, r2, r3, lr}
+  push {lr}
 
-  @ Ist NOS belegt ? Wenn ja --> Fertig.
-  @ Wenn nein: Erstmal TOS belegen, falls nötig, dann NOS.
+  @ Es könnten kein Element, ein Element oder zwei Elemente geholt werden müssen.
 
-  ldr r0, =allocator_base
   ldr r1, [r0, #offset_state_nos]
   cmp r1, #unknown
   bne 1f @ Wenn schon etwas in NOS enthalten ist, bin ich fertig.
 
-    @ NOS ist nicht belegt. Belege also TOS, falls noch nicht geschehen:
-    bl expect_one_element
+    movs r2, #offset_state_nos   @ Der größere Register, der zuletzt geladen wird, muss diesmal NOS werden.
+    bl erstes_element_belegen
 
-    @ Fülle NOS vom Stack nach:
-
-    ldr r0, =state_nos
-    bl fill_element_from_stack
-
-1: pop {r0, r1, r2, r3, pc}
-
-@ Hier lassen sich jetzt auch gemütlich ldm-Bündelungen einführen.
+    movs r2, #offset_state_tos   @ Der kleinere Register, der danach geladen wird, muss TOS werden.
+    bl element_belegen
+  
+    bl hkomma
+1:pop {pc}
 
 @ -----------------------------------------------------------------------------
 expect_three_elements: @ Sorgt dafür, dass mindestens drei Elemente bereitliegen.
 @ -----------------------------------------------------------------------------
-  push {r0, r1, r2, r3, lr}
+  push {lr}
 
-  @ Ist 3OS belegt ? Wenn ja --> Fertig.
-  @ Wenn nein: Erstmal TOS und NOS belegen, falls nötig, dann 3OS.
+  @ Es könnten kein Element, ein Element, zwei oder drei Elemente geholt werden müssen.
 
-  ldr r0, =allocator_base
   ldr r1, [r0, #offset_state_3os]
   cmp r1, #unknown
-  bne 1f @ Wenn schon etwas in NOS enthalten ist, bin ich fertig.
+  bne 1f @ Wenn schon etwas in 3OS enthalten ist, bin ich fertig.
 
-    @ NOS ist nicht belegt. Belege also TOS, falls noch nicht geschehen:
-    bl expect_two_elements
+    movs r2, #offset_state_3os   @ Der größere Register, der zuletzt geladen wird, muss diesmal 3OS werden.
+    bl erstes_element_belegen
 
-    @ Fülle 3OS vom Stack nach:
+    movs r2, #offset_state_nos   @ Der kleinere Register, der danach geladen wird, muss NOS werden.
+    bl element_belegen
 
-    ldr r0, =state_3os
-    bl fill_element_from_stack
+    movs r2, #offset_state_tos   @ Der kleinste Register, der als letztes geladen wird, muss TOS werden.
+    bl element_belegen
+  
+    bl hkomma
+1:pop {pc}
 
-1: pop {r0, r1, r2, r3, pc}
+@ -----------------------------------------------------------------------------
+expect_four_elements: @ Sorgt dafür, dass mindestens vier Elemente bereitliegen.
+@ -----------------------------------------------------------------------------
+  push {lr}
 
+  @ Es könnten kein Element, ein Element, zwei oder drei oder vier Elemente geholt werden müssen.
+
+  ldr r1, [r0, #offset_state_4os]
+  cmp r1, #unknown
+  bne 1f @ Wenn schon etwas in 4OS enthalten ist, bin ich fertig.
+
+    movs r2, #offset_state_4os
+    bl erstes_element_belegen
+
+    movs r2, #offset_state_3os
+    bl element_belegen
+
+    movs r2, #offset_state_nos
+    bl element_belegen
+
+    movs r2, #offset_state_tos
+    bl element_belegen
+  
+    bl hkomma
+1:pop {pc}
 
  .ltorg
 
@@ -289,7 +281,7 @@ expect_tos_in_register: @ Sorgt dafür, dass TOS auf jeden Fall einem Register l
     cmp r1, #constant
     bne 4f
       ldr r3, [r0, #offset_constant_tos] @ Hole die Konstante ab
-      bl generiere_konstante
+      bl generiere_veraenderliche_konstante
       movs r1, r3
 
 4:  @ Beide Argumente sind jetzt in Registern.
@@ -308,7 +300,7 @@ expect_nos_in_register: @ Sorgt dafür, dass NOS auf jeden Fall einem Register l
     cmp r1, #constant
     bne 4f
       ldr r3, [r0, #offset_constant_nos] @ Hole die Konstante ab
-      bl generiere_konstante
+      bl generiere_veraenderliche_konstante
       movs r1, r3
 
 4:  @ Beide Argumente sind jetzt in Registern.
@@ -323,16 +315,23 @@ nos_change_tos_away_later: @ NOS wird jetzt verändert, TOS danach freigegeben.
   @   --> Registerkopie anfertigen
 
   @ r0 soll die allocator_base enthalten !
-  push {r1, r2, r3, lr}
+  push {r1, r2, r3, r4, r5, lr}
 
   ldr r2, [r0, #offset_state_nos]
   ldr r3, [r0, #offset_state_3os]
-  cmp r2, r3
-  bne.n 1f
+  ldr r4, [r0, #offset_state_4os]
+  ldr r5, [r0, #offset_state_5os]
 
-    @ Identisch. Sind es Register ?
-    cmp r2, #7
-    bhi 1f
+  cmp r2, r3
+  beq 1f
+  cmp r2, r4
+  beq 1f
+  cmp r2, r5
+  bne 2f
+
+1:  @ Identisch. Sind es Register ?
+    cmp r2, #7 @ Es gibt nur 7 Register - alle anderen Fälle sind größer.
+    bhi 2f
 
       @ Ja, es sind beides Register. Mache für NOS einen Registerwechsel, möglichst in r6 hinein.
       pushdatos
@@ -342,23 +341,29 @@ nos_change_tos_away_later: @ NOS wird jetzt verändert, TOS danach freigegeben.
       str r3, [r0, #offset_state_nos]
       bl hkomma
 
-1:pop {r1, r2, r3, pc}
+2:pop {r1, r2, r3, r4, r5, pc}
 
 @ -----------------------------------------------------------------------------
 make_tos_changeable: @ Lege eine Elementkopie an, falls TOS woanders schon belegt ist.
 @ -----------------------------------------------------------------------------
   @ r0 soll die allocator_base enthalten !
-  push {r1, r2, r3, lr}
+  push {r1, r2, r3, r4, r5, lr}
 
   ldr r1, [r0, #offset_state_tos]
   ldr r2, [r0, #offset_state_nos]
   ldr r3, [r0, #offset_state_3os]
+  ldr r4, [r0, #offset_state_4os]
+  ldr r5, [r0, #offset_state_5os]
 
   cmp r1, r2
   beq 1f
   cmp r1, r3
   beq 1f
-    pop {r1, r2, r3, pc}
+  cmp r1, r4
+  beq 1f
+  cmp r1, r5
+  beq 1f
+    pop {r1, r2, r3, r4, r5, pc}
 
 1: @ Registerwechsel mit Elementkopie für TOS.
 
@@ -369,7 +374,7 @@ make_tos_changeable: @ Lege eine Elementkopie an, falls TOS woanders schon beleg
       str r3, [r0, #offset_state_tos]
       bl hkomma
 
-    pop {r1, r2, r3, pc}
+    pop {r1, r2, r3, r4, r5, pc}
 
 @ -----------------------------------------------------------------------------
 tos_registerwechsel: @ Wechselt den TOS-Register, gibt diesen in r3 zurück

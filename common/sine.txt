@@ -48,21 +48,29 @@ decimal
 
 : 2rshift 0 ?do d2/ loop ;
 
+: cordic-erster-teil
+      i e^ka 0 d+ 2rot 2rot
+            2over i 2rshift 2rot 2rot
+      2swap 2over i 2rshift
+      d- 2rot 2rot d+
+;
+
+: cordic-zweiter-teil
+      i e^ka 0 d- 2rot 2rot
+            2over i 2rshift 2rot 2rot
+      2swap 2over i 2rshift
+      d+ 2rot 2rot 2swap d-
+;
+
 : cordic ( f-angle -- f-error f-sine f-cosine )
          ( Angle between -Pi/2 and +Pi/2 ! )
   0 0 $9B74EDA8 0
   32 0 do
     2rot dup 0<
     if
-      i e^ka 0 d+ 2rot 2rot
-            2over i 2rshift 2rot 2rot
-      2swap 2over i 2rshift
-      d- 2rot 2rot d+
+      cordic-erster-teil
     else
-      i e^ka 0 d- 2rot 2rot
-            2over i 2rshift 2rot 2rot
-      2swap 2over i 2rshift
-      d+ 2rot 2rot 2swap d-
+      cordic-zweiter-teil
     then
   loop
 2-foldable ;

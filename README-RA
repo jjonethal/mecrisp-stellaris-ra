@@ -10,7 +10,7 @@ It should look and feel like the mainstream Mecrisp-Stellaris,
 but with a very important difference:
 
 This time, it contains an analytical compiler which keeps track
-of the top three stack elements and maps them to registers
+of the top five stack elements and maps them to registers
 whenever possible.
 
 Five targets are available: 

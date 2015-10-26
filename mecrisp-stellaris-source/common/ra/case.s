@@ -92,6 +92,9 @@ of_opcodiereinsprung:
 
   @ Mich interessieren nur die beiden obersten Elemente, die verglichen werden sollen.  
   bl expect_two_elements @ Mindestens 2 Elemente
+
+  bl tidyup_register_allocator_5os
+  bl tidyup_register_allocator_4os
   bl tidyup_register_allocator_3os @ Maximal 2 Elemente, das dritte gleich in den Stack schieben.
   
   @ Jetzt habe ich genau zwei Elemente im Allokator.

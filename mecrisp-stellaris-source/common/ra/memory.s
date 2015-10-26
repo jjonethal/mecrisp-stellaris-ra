@@ -154,6 +154,7 @@ allocator_4store_anderer_opcode:
       bics r3, r1
 
       bl generiere_adresskonstante
+      str r3, [r0, #offset_state_tos]
 
 2:  @ r3 sagt nun in jedem Fall, in welchem Register die Adresse zum Schreiben bereitliegt.
     lsls r3, #3
@@ -276,6 +277,7 @@ allocator_2store:
       bics r3, r1
 
       bl generiere_adresskonstante
+      str r3, [r0, #offset_state_tos]
 
 2:  @ r3 sagt nun in jedem Fall, in welchem Register die Adresse zum Schreiben bereitliegt.
     lsls r3, #3
@@ -389,6 +391,7 @@ allocator_1store:
       bics r3, r1
 
       bl generiere_adresskonstante
+      str r3, [r0, #offset_state_tos]
 
 2:  @ r3 sagt nun in jedem Fall, in welchem Register die Adresse zum Schreiben bereitliegt.
     lsls r3, #3
