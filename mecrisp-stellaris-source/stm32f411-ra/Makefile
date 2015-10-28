@@ -1,7 +1,7 @@
 
 ARMGNU?=arm-none-eabi
 
-COPS = -Wall  -Os -nostdlib -nostartfiles -ffreestanding -save-temps
+COPS = -Wall  -Og -nostdlib -nostartfiles -ffreestanding -save-temps
 AOPS = --warn --fatal-warnings
 
 TARGET = stm32f411
@@ -17,7 +17,7 @@ $(PROJECT).hex : $(PROJECT).bin
 	$(ARMGNU)-objcopy -I binary -O ihex --change-addresses 0x08000000 $(PROJECT).bin $(PROJECT).hex
 
 $(PROJECT).bin : memmap $(PROJECT).o
-	$(ARMGNU)-ld -o $(PROJECT).elf -T memmap $(PROJECT).o
+	$(ARMGNU)-ld -g -o $(PROJECT).elf -T memmap $(PROJECT).o
 	$(ARMGNU)-objdump -D $(PROJECT).elf > $(PROJECT).list
 	$(ARMGNU)-objcopy $(PROJECT).elf $(PROJECT).bin -O binary
 	$(ARMGNU)-objdump --source --all-headers --demangle --line-numbers --wide $(PROJECT).elf > $(PROJECT).lst
