@@ -60,12 +60,18 @@ $FFFF          constant USART_BRR_DIV
 : SYS-CLK-PLL  ( -- )    2 SW RCC_CFGR bits! ;
 : PLL-OFF      ( -- )    PLLON RCC_CR bic! ;
 : PLL-ON       ( -- )    PLLON RCC_CR bis! ;
-: PLL-100-HSE  ( -- )    \ set pll to 200 MHz 100 Mhz system clock 50 MHz usb - not for USB
+: PLL-100-HSE  ( -- )                           \ set pll to 200 MHz 100 Mhz system clock 50 MHz usb - not for USB
    1 PLLSRC RCC_PLLCFGR bits!                   \ PLLSRC HSE 8 MHZ
    HSE-CLK-HZ #2000000 / PLLM RCC_PLLCFGR bits! \ 2 MHz pll input frequency
    200 2 / PLLN RCC_PLLCFGR bits!               \ 200 Mhz PLL freq 
    0 PLLP RCC_PLLCFGR bits!                     \ /2 100 MHz pll output frequency
    200 50 / PLLQ RCC_PLLCFGR bits! ;            \ PLL48CK 50 Mhz
+: PLL-96-HSE  ( -- )                            \ set pll to 192 MHz 96 Mhz system clock 48 MHz usb for USB
+   1 PLLSRC RCC_PLLCFGR bits!                   \ PLLSRC HSE 8 MHZ
+   HSE-CLK-HZ #2000000 / PLLM RCC_PLLCFGR bits! \ 2 MHz pll input frequency
+   192 2 / PLLN RCC_PLLCFGR bits!               \ 192 Mhz PLL freq 
+   0 PLLP RCC_PLLCFGR bits!                     \ /2 96 MHz pll output frequency
+   192 48 / PLLQ RCC_PLLCFGR bits! ;            \ PLL48CK 48 Mhz
 : FLASH-WS-100MHZ  ( -- )  \ FLASH settings for 100 MHz 3300 millivolt
    DCRST FLASH_ACR bis!
    ICRST FLASH_ACR bis!
@@ -76,11 +82,19 @@ $FFFF          constant USART_BRR_DIV
 : APB1/2  ( -- )  %100 PPRE1 RCC_CFGR bits! ;
 : APB2/1  ( -- )  %000 PPRE2 RCC_CFGR bits! ;
 : AHB/1   ( -- )  %000 HPRE  RCC_CFGR bits! ;
-: USART2-BAUD-FIX-50MHz ( -- )
-   #50000000 #115200 2 / + #115200 /
+: USART2_BRR_DIV! ( n -- )
    USART_BRR_DIV USART_BRR USART2 + bits! ;
+: USART2-BAUD-FIX-50MHz ( -- )
+   #50000000 #115200 2/ + #115200 / USART2_BRR_DIV! ;
+: USART2-BAUD-FIX-48MHz ( -- )
+   #48000000 #115200 2/ + #115200 / USART2_BRR_DIV! ;
 : SYS-CLK-HSE-100-MHZ ( -- )  \ set system clock to 100 MHz HSE pll source
    HSE-ON SYS-CLK-HSI PLL-OFF
    PLL-100-HSE PLL-ON FLASH-WS-100MHZ 
    APB1/2 APB2/1 AHB/1 USART2-BAUD-FIX-50MHz
+   SYS-CLK-PLL ;
+: SYS-CLK-HSE-96-MHZ ( -- )  \ set system clock to 96 MHz HSE pll source
+   HSE-ON SYS-CLK-HSI PLL-OFF
+   PLL-100-HSE PLL-ON FLASH-WS-100MHZ 
+   APB1/2 APB2/1 AHB/1 USART2-BAUD-FIX-48MHz
    SYS-CLK-PLL ;
