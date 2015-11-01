@@ -115,6 +115,7 @@ get_free_register: @ Gibt den Register in r3 zurück. Setzt noch keinen Zustand.
 
   movs r3, #0 @ Nur noch r0 ist übrig geblieben
   movs r1, #unknown @ Muss die Adresskonstantenspeicherstelle wieder freigeben...
+  ldr r0, =allocator_base
   str r1, [r0, #offset_state_r0]
   pop {r0, r1, r2, r4, r5, pc}
 
