@@ -407,3 +407,14 @@
   - Removed align4, as it has been identical with align
   - Improved maintainability of the code
   - Small improvements under the hood here and there
+
+28.10.2015, Matthias Koch, Mecrisp-Stellaris 2.1.6
+
+  - Many new examples for Teensy 3.1 by Andreas Wagner
+  - Bugfix for STM32L152 vector map and additional interrupt vectors,
+    more examples for STM L152 Discovery by Абдрахимов Илья
+
+31.10.2015, Matthias Koch, Mecrisp-Stellaris RA 1.1
+
+  - Merged news from 2.1.6 into this package
+  - Improved tuck
