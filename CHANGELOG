@@ -418,3 +418,7 @@
 
   - Merged news from 2.1.6 into this package
   - Improved tuck
+
+01.11.2015, Matthias Koch, Mecrisp-Stellaris RA 1.2
+
+  - Jean Jonethal added STM32F303-RA and fixed a bug.

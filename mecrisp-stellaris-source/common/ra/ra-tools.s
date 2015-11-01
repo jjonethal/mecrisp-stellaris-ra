@@ -114,8 +114,11 @@ get_free_register: @ Gibt den Register in r3 zurück. Setzt noch keinen Zustand.
   bl get_free_register_intern
 
   movs r3, #0 @ Nur noch r0 ist übrig geblieben
+
+  ldr r0, =allocator_base
   movs r1, #unknown @ Muss die Adresskonstantenspeicherstelle wieder freigeben...
   str r1, [r0, #offset_state_r0]
+
   pop {r0, r1, r2, r4, r5, pc}
 
 get_free_register_intern: @ Welcher Register geprüft werden soll, steht in r0. Rückgabe in r3.
