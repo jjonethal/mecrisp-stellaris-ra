@@ -13,10 +13,21 @@ This time, it contains an analytical compiler which keeps track
 of the top five stack elements and maps them to registers
 whenever possible.
 
-Five targets are available: 
-KL25Z128 & LPC1114FN28 (Cortex M0), ARM Linux and LM4F120 & TM4C1294 (Cortex M4).
+Currently available targets for RA testing:
 
-For M4, you can flash your Stellaris or Tiva Launchpad with the included binary.
+Cortex M0:
+
+  KL25Z128
+  LPC1114FN28
+
+Cortex M4:
+  
+  LM4F120
+  TM4C1294
+  ARM Linux
+  STM32F303
+
+For M4, you can flash your boards with the included binaries.
 
 For M0, you have three possibilities:
 
