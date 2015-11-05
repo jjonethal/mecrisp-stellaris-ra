@@ -66,6 +66,9 @@ ramallot sprungtrampolin, 4
 ramallot state_r0, 4
 ramallot constant_r0, 4
 
+ramallot inline_cache_count, 4
+
+
 .equ allocator_base, state_tos
 
 .equ offset_state_tos,    0 * 4
@@ -83,6 +86,13 @@ ramallot constant_r0, 4
 
 .equ offset_state_r0,    11 * 4
 .equ offset_constant_r0, 12 * 4
+.equ offset_inline_cache_count, 13 * 4
+
+
+.equ rawinlinelength, 10 @ How many opcodes long may definitions be for direct inlining ?
+.equ inline_cache_length, 5 @ For optimisation across inlined definitions, how many compilation steps should be buffered at most ?
+
+ramallot inline_cache, 6 * inline_cache_length
 
 .endif
 
@@ -183,6 +193,9 @@ CoreDictionaryAnfang: @ Dictionary-Einsprungpunkt setzen
   .ltorg
   .include "../common/numberstrings.s"
   .ltorg
+
+  .include "../common/ra/ra-kompilator.s"
+  .include "../common/ra/ra-inline.s"
   .include "../common/ra/interpreter.s"
   .ltorg
 
