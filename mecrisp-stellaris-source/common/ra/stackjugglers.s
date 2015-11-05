@@ -73,6 +73,7 @@ dup_allocator:
 
 @ -----------------------------------------------------------------------------
   Wortbirne Flag_foldable_1|Flag_inline|Flag_allocator, "drop" @ ( x -- )
+drop_einsprung:
 @ -----------------------------------------------------------------------------
   drop
   bx lr

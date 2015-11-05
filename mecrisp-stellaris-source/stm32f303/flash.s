@@ -16,13 +16,13 @@
 @    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 @
 
-@ Schreiben und Löschen des Flash-Speichers im STM32F051.
+@ Schreiben und Löschen des Flash-Speichers im STM32F303.
 
 @ In diesem Chip gibt es Flashschreibzugriffe mit wählbarer Breite -
 @ so ist es diesmal ganz komfortabel. Leider gibt es nur weniger große
 @ Sektoren, die getrennt gelöscht werden können.
 
-@ Write and Erase Flash in STM32F051.
+@ Write and Erase Flash in STM32F303.
 @ Porting: Rewrite this ! You need hflash! and - as far as possible - cflash!
 
 
