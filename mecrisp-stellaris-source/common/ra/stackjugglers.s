@@ -195,7 +195,7 @@ tuck:
   bx lr
 
     push {lr} @ Spezialeinsprung des Registerallokators:
-    bl expect_three_elements
+    bl expect_two_elements
     bl dup_allocator
     bl minusrot_allocator
     pop {pc}
