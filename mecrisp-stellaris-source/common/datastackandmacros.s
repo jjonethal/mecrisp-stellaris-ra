@@ -201,8 +201,9 @@ psp .req r7
 
 .equ Flag_allocator, Flag_visible | 0x200
 .equ Flag_Sprungschlucker, Flag_visible | 0x400
-.equ Flag_Zustandswechsler, Flag_visible | 0x800
-.equ Flag_bxlr, Flag_visible | 0x1000
+.equ Flag_bxlr, Flag_visible | 0x800
+.equ Flag_inlinecache, Flag_visible | 0x1000
+.equ Flag_Literator, Flag_visible | 0x2000  @ Tritt nur im Cache für die RA-Vererbung auf !
 
 .else
 
@@ -327,7 +328,7 @@ psp .req r7
 .macro welcome Meldung
   bl dotgaensefuesschen
         .byte 8f - 7f         @ Compute length of name field.
-7:      .ascii "Mecrisp-Stellaris RA 1.2 experimental"
+7:      .ascii "Mecrisp-Stellaris RA 1.3 experimental"
         .ascii "\Meldung\n"
 8:      .p2align 1
 .endm

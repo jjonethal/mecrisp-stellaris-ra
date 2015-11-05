@@ -59,7 +59,7 @@
   Wortbirne Flag_visible, "interpret" @ ( -- )
 interpret:
 @ -----------------------------------------------------------------------------
-  push {r4, r5, lr}
+  push {lr}
 
 1:@ Bleibe solange in der Schleife, wie token noch etwas zurückliefert.
   @ Stay in loop as long token can fetch something from input buffer.
@@ -80,20 +80,9 @@ interpret:
 3: @ Alles ok.  Stacks are fine.
 
 @ -----------------------------------------------------------------------------
-
-  @ Konstantenfaltungszeiger setzen, falls er das noch nicht ist.
-  @ Set Constant-Folding-Pointer
-  ldr r4, =konstantenfaltungszeiger
-  ldr r5, [r4]
-  cmp r5, #0
-  bne.n 3f
-    @ Konstantenfaltungszeiger setzen.
-    @ If not set yet, set it now.
-    movs r5, psp
-    str r5, [r4]
-3:
-
+  bl konstantenfaltungszeiger_setzen
 @ -----------------------------------------------------------------------------
+
   bl token
   @ ( Address Length )
 
@@ -101,7 +90,7 @@ interpret:
   cmp tos, #0
   bne.n 2f
     ddrop
-    pop {r4, r5, pc}
+    pop {pc}
 2:
 
 @ -----------------------------------------------------------------------------
@@ -124,11 +113,9 @@ interpret:
   @ Registerkarte:
   @  r1: Flags                                  Flags
   @  r2: Einsprungadresse                       Code entry point
-  @  r4: Adresse des Konstantenfaltungszeigers  Address of constant folding pointer
-  @  r5: Konstantenfaltungszeiger               Constant folding pointer
 
   cmp r2, #0
-  bne.n 4f
+  bne.n .interpret_token_found
     @ Nicht gefunden. Ein Fall für Number.
     @ Entry-Address is zero if not found ! Note that Flags have very special meanings in Mecrisp !
 
@@ -139,7 +126,7 @@ interpret:
 
     bl number
 
-  @ Number gives back ( 0 ) or ( x 1 ).
+  @ Number gives back ( 0 ) or ( x 1 ) or ( x y 2 ).
   @ Zero means: Not recognized.
   @ Note that literals actually are not written/compiled here.
   @ They are simply placed on stack and constant folding takes care of them later.
@@ -156,43 +143,21 @@ not_found_addr_r0_len_r1:
     Fehler_Quit_n " not found."
 
 @ -----------------------------------------------------------------------------
-4:@ Token im Dictionary gefunden. Found token in dictionary. Decide what to do.
+.interpret_token_found:
+  @ Token im Dictionary gefunden. Found token in dictionary. Decide what to do.
 
   @ ( Token-Addr Token-Length )
 
   @ Registerkarte:
   @  r1: Flags                                  Flags
   @  r2: Einsprungadresse                       Code entry point
-  @  r4: Adresse des Konstantenfaltungszeigers  Address of constant folding pointer
-  @  r5: Konstantenfaltungszeiger               Constant folding pointer
 
   ldr r3, =state
   ldr r3, [r3]
   cmp r3, #0
   bne.n 5f
     @ Im Ausführzustand.  Execute.
-    movs r5, #0   @ Konstantenfaltungszeiger löschen  Clear constant folding pointer
-    str r5, [r4]  @ Do not collect literals for folding in execute mode. They simply stay on stack.
-
-
-    @ Beginnt eine neue Definition mit : ?
-    ldr r3, =Flag_Zustandswechsler & ~Flag_visible
-    ands r3, r1
-    beq.n .keindoppelpunkt
-
-      @ writeln "Definitionsanfang-RA"
-      ddrop
-      ldr r0, =Datenstacksicherung @ Setzt den Füllstand des Datenstacks zur Probe.
-      str psp, [r0]                @ Save current datastack pointer to detect structure mismatch later.
-
-      bl create
-
-      ldr r0, =state
-      movs r1, #1 @ So eine Art bx lx-Kompilierzustand-Flag in State legen
-      str r1, [r0]
-      b.n 1b
-
-.keindoppelpunkt:
+    bl konstantenfaltungszeiger_loeschen
 
     movs r3, #Flag_immediate_compileonly & ~Flag_visible
     ands r3, r1
@@ -208,141 +173,19 @@ not_found_addr_r0_len_r1:
     b.n 1b @ Interpretschleife fortsetzen.  Finished.
 
   @ Registerkarte:
-  @  r0: Stringadresse des Tokens, wird ab hier nicht mehr benötigt.
-  @      Wird danach für die Zahl der benötigten Konstanten für die Faltung genutzt.
-  @      From now on, this is number of constants that would be needed for folding this definition
   @  r1: Flags
-  @  r3: Temporärer Register, ab hier: Konstantenfüllstand  Constant fill gauge of Datastack
   @  r2: Einsprungadresse                        Code entry point
-  @  r4: Adresse des Konstantenfaltungszeigers.  Address of constant folding pointer
-  @  r5: Konstantenfaltungszeiger                Constant folding pointer
 
 @ -----------------------------------------------------------------------------
 5:@ Im Kompilierzustand.  In compile state.
     ddrop
 
-    ldr r0, =Flag_Sprungschlucker & ~Flag_visible
-    ands r0, r1
-    bne.n .interpret_entsprungen
-      bl sprungschreiber_flaggenerator
+    pushda r2 @ Einsprungadresse
+    pushda r1 @ Flags
 
-.interpret_entsprungen:
-    @ Jetzt dürfen keine Sprünge mehr im Sprungtrampolin warten, falls sie nicht vom Allokator später eingebaut werden.
-
-
-
-    @ Prüfe das Ramallot-Flag, das automatisch 0-faltbar bedeutet:
-    @ Ramallot-Words always are 0-foldable !
-    @ Check this first, as Ramallot is set together with foldability,
-    @ but the meaning of the lower 4 bits is different.
-
-    movs r0, #Flag_ramallot & ~Flag_visible
-    ands r0, r1 @ Flagfeld auf Faltbarkeit hin prüfen
-    bne.n .interpret_faltoptimierung
-
-    @ Bestimme die Anzahl der zur Faltung bereitliegenden Konstanten:
-    @ Calculate number of folding constants available.
-
-    subs r3, r5, psp @ Konstantenfüllstandszeiger - Aktuellen Stackpointer
-    lsrs r3, #2      @ Durch 4 teilen  Divide by 4 to get number of stack elements.
-    @ Number of folding constants now available in r3.
-
-    @ Prüfe die Faltbarkeit des aktuellen Tokens:
-    @ Check for foldability.
-
-    movs r0, #Flag_foldable & ~Flag_visible
-    ands r0, r1 @ Flagfeld auf Faltbarkeit hin prüfen
-    beq.n .interpret_allocator @ Not foldable, but maybe the allocator can handle this.
-
-.interpret_genugkonstanten: @ Not opcodable. Maybe foldable.
-      @ Prüfe, ob genug Konstanten da sind:
-      @ How many constants are necessary to fold this word ?
-      movs r0, #0x0F
-      ands r0, r1 @ Zahl der benötigten Konstanten maskieren
-
-      cmp r3, r0
-      blo.n .interpret_allocator @ Not enough folding constants available, but maybe the allocator can handle this.
-
-.interpret_faltoptimierung:
-        @ Do folding by running the definition.
-        @ Note that Constant-Folding-Pointer is already set to keep track of results calculated.
-        pushda r2 @ Einsprungadresse bereitlegen  Code entry point
-        bl execute @ Durch Ausführung falten      Fold by executing
-        b.n 1b @ Interpretschleife weitermachen     Finished.
-
-
-
-.interpret_allocator:
-
-  @ All foldable cases are finished now.
-
-  @ Flags of Definition in r1
-  @ Entry-Point of Definition in r2
-  @ Number of folding constants available in r3
-
-  ldr r0, =Flag_allocator & ~Flag_visible
-  ands r0, r1
-  beq.n .interpret_allocator_finished
-
-    bl nflush_faltkonstanten @ Jetzt werden die restlichen Faltkonstanten in den RA-Cache geschoben.
-    @ Dies kommt einem partiellen Konstantenschreiben gleich, wobei allerdings die drei obersten Stackelemente
-    @ TOS, NOS und 3OS im RA-Cache hängenbleiben. Dabei werden nur vielleicht Opcodes generiert, falls
-    @ der RA-Cache zu klein ist, alle zu fassen.
-
-    @ Der Allokatoreinsprung ist am Ende der Definition
-    movs r0, r2
-    bl suchedefinitionsende
-    adds r2, r0, #1 @ One more for Thumb
-
-    ldr r0, =allocator_base
-    blx r2
-
-    movs r0, psp  @ Keine Konstantenfaltung über den Allokator hinweg - sonst würde z.B. do/loop die Struktur nicht auf dem Stack lagern können.
-    str r0, [r4]  @ Vor dem Aufschwimmen lassen den Konstantenfaltungszeiger neu setzen.
-
-    bl nfaltkonstanten_aufschwimmen @ Sollten am Ende noch Faltkonstanten im Cache liegen, lasse sie aufschwimmen
+    bl kompilator
     b.n 1b @ Interpretschleife weitermachen     Finished.
 
-.interpret_allocator_finished:
-
-  @ No optimizations possible. Go back to canonical stack for classic compilation.
-  @ Write all folding constants left into dictionary.
-
-  bl nflush_faltkonstanten     @ Vorhandene Faltkonstanten, soweit möglich, erstmal in den Registerallokator laden.
-  bl tidyup_register_allocator @ Alle Registerbewegungen opcodieren
-
-  movs r5, #0   @ Konstantenfaltungszeiger löschen  Clear constant folding pointer.
-  str r5, [r4]
-
-@ -----------------------------------------------------------------------------
-  @ Write push {lr} if this definition still is in bx lr mode.
-
-  ldr r0, =Flag_bxlr & ~Flag_visible
-  ands r0, r1
-  bne.n .prepared_for_classic
-    bl push_lr_nachholen
-.prepared_for_classic:
-
-@ -----------------------------------------------------------------------------
-  @ Classic compilation.
-  pushda r2 @ Adresse zum klassischen Bearbeiten. Put code entry point on datastack.
-
-  movs r2, #Flag_immediate & ~Flag_visible
-  ands r2, r1
-  beq.n 6f
-    @ Es ist immediate. Immer ausführen. Always execute immediate definitions.
-    bl execute @ Ausführen.
-    b.n 1b @ Zurück in die Interpret-Schleife.  Finished.
-
-6:movs r2, #Flag_inline & ~Flag_visible
-  ands r2, r1
-  beq.n 7f
-
-  bl inlinekomma @ Direkt einfügen.        Inline the code
-  b.n 1b @ Zurück in die Interpret-Schleife  Finished.
-
-7:bl callkomma @ Klassisch einkompilieren  Simply compile a BL or Call.
-  b.n 1b @ Zurück in die Interpret-Schleife  Finished.
 
 @------------------------------------------------------------------------------
   Wortbirne Flag_visible|Flag_variable, "hook-quit" @ ( -- addr )

@@ -422,3 +422,7 @@
 01.11.2015, Matthias Koch, Mecrisp-Stellaris RA 1.2
 
   - Jean Jonethal added STM32F303-RA and fixed a bug.
+
+05.11.2015, Matthias Koch, Mecrisp-Stellaris RA 1.3
+
+  - Inline-Cache allows register allocation across inlined definitions
