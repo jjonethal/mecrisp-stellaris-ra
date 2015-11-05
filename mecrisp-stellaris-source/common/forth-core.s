@@ -105,7 +105,6 @@ ramallot Zahlenpuffer, Zahlenpufferlaenge+1 @ Reserviere mal großzügig 64 Byte
 ramallot Eingabepuffer, Maximaleeingabe  @ Eingabepuffer wird einen Adresse-Länge String enthalten
 
 .set rampointer, (rampointer + 3 ) & (~ 3) @ allign stacks to word
-
 .ifdef flash16bytesblockwrite
 ramallot datenstackende, 512  @ Larger data stack because it will be used for buffering a 256 byte block
 ramallot datenstackanfang, 0  @ during Flash write on LPC1114FN28
