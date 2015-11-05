@@ -2,6 +2,7 @@
 \ require bits.fth
 \ "E:\stm\DM00105918 NUCLEO stm32f411re datasheet.pdf"
 \ "E:\stm\DM00105823 Nucleo stm32f411re user manual.pdf"
+\ "E:\stm\DM00046982 PM0214 STM32F3 and STM32F4 Series Cortex-M4 programming manual.pdf"
 \ datasheet stm32f411 "E:\stm\DM00115249 STM32F411xC STM32F411xE.pdf"
 \ reference manual stm32f411 "E:\stm\DM00119316  RM0383 STM32F411xC_E advanced ARM-based 32-bit MCUs .pdf"
 
