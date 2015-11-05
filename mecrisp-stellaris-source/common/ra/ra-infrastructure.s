@@ -101,6 +101,15 @@ npush_faltkonstante: @ Füge von unten (!) eine Faltkonstante ein !
   pop {r3}
   adds r3, #1
 
+  @ writeln "Eine Konstante schwimmt auf --> drop in den Inline-Cache !"
+
+  pushdatos
+  ldr tos, =drop_einsprung
+
+  pushdatos
+  ldr tos, =Flag_foldable_1|Flag_inline|Flag_allocator
+  bl add_to_inline_cache 
+  
   pop {r0, r1, pc}
 
 
@@ -116,7 +125,13 @@ nget_faltkonstante: @ Hole von unten (!) eine Faltkonstante ab !
   push {r3}
   bl roll
   pop {r3}
-  popda r2
+  @ popda r2
+  movs r2, tos
+
+  @ Für den Cache !
+  pushdatos
+  ldr tos, =Flag_Literator
+  bl add_to_inline_cache  
 
   pop {r0, r1, pc}
 
