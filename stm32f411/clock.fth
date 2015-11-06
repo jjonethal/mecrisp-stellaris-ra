@@ -73,7 +73,7 @@ $FFFF          constant USART_BRR_DIV
    192 2 / PLLN RCC_PLLCFGR bits!               \ 192 Mhz PLL freq 
    0 PLLP RCC_PLLCFGR bits!                     \ /2 96 MHz pll output frequency
    192 48 / PLLQ RCC_PLLCFGR bits! ;            \ PLL48CK 48 Mhz
-: FLASH-WS-100MHZ  ( -- )  \ FLASH settings for 100 MHz 3300 millivolt
+: FLASH-WS-100MHZ  ( -- )                       \ FLASH settings for 100 MHz 3300 millivolt
    DCRST FLASH_ACR bis!
    ICRST FLASH_ACR bis!
    DCEN FLASH_ACR bis!
