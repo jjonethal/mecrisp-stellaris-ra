@@ -90,7 +90,7 @@ ramallot inline_cache_count, 4
 
 
 .equ rawinlinelength, 10 @ How many opcodes long may definitions be for direct inlining ?
-.equ inline_cache_length, 5 @ For optimisation across inlined definitions, how many compilation steps should be buffered at most ?
+.equ inline_cache_length, 6 @ For optimisation across inlined definitions, how many compilation steps should be buffered at most ?
 
 ramallot inline_cache, 6 * inline_cache_length
 
@@ -104,6 +104,7 @@ ramallot Zahlenpuffer, Zahlenpufferlaenge+1 @ Reserviere mal großzügig 64 Byte
 .equ Maximaleeingabe,    200             @ Input buffer for an Address-Length string
 ramallot Eingabepuffer, Maximaleeingabe  @ Eingabepuffer wird einen Adresse-Länge String enthalten
 
+.set rampointer, (rampointer + 3 ) & (~ 3) @ allign stacks to word
 
 .ifdef flash16bytesblockwrite
 ramallot datenstackende, 512  @ Larger data stack because it will be used for buffering a 256 byte block
