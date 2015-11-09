@@ -179,21 +179,7 @@ minus_allocator:
 
 allocator_one_minus:
     pushdaconstw 0x1E00 + 1<<6
-
-chsmallplusminus:
-    push {lr}
-    bl expect_one_element @ Da nicht gefaltet worden ist, muss es sich um einen Register handeln.
-
-    ldr r1, [r0, #offset_state_tos]
-    lsls r1, #3
-    orrs tos, r1
-
-    bl tos_registerwechsel
-
-    orrs tos, r3  @ Der Endzielregister ist gar nicht geschoben
-    bl hkomma
-
-    pop {pc}
+    b.n smalltworegisters
 
 @ -----------------------------------------------------------------------------
   Wortbirne Flag_foldable_1|Flag_inline|Flag_allocator, "1+" @ ( u -- u+1 )
@@ -203,7 +189,7 @@ chsmallplusminus:
   bx lr
 
     pushdaconstw 0x1C00 + 1<<6
-    b.n chsmallplusminus
+    b.n smalltworegisters
 
 @ -----------------------------------------------------------------------------
   Wortbirne Flag_foldable_1|Flag_inline|Flag_allocator, "2-" @ ( u -- u-1 )
@@ -213,7 +199,7 @@ chsmallplusminus:
   bx lr
 
     pushdaconstw 0x1E00 + 2<<6
-    b.n chsmallplusminus
+    b.n smalltworegisters
 
 @ -----------------------------------------------------------------------------
   Wortbirne Flag_foldable_1|Flag_inline|Flag_allocator, "2+" @ ( u -- u+1 )
@@ -223,7 +209,7 @@ chsmallplusminus:
   bx lr
 
     pushdaconstw 0x1C00 + 2<<6
-    b.n chsmallplusminus
+    b.n smalltworegisters
 
 @ -----------------------------------------------------------------------------
   Wortbirne Flag_foldable_1|Flag_inline|Flag_allocator, "cell+" @ ( x -- x+4 )
@@ -232,7 +218,7 @@ chsmallplusminus:
   bx lr
 
     pushdaconstw 0x1C00 + 4<<6
-    b.n chsmallplusminus
+    b.n smalltworegisters
 
 @ -----------------------------------------------------------------------------
   Wortbirne Flag_foldable_1|Flag_inline|Flag_allocator, "negate" @ ( n1 -- -n1 )
@@ -246,11 +232,11 @@ allocator_negate:
 smalltworegisters:
     push {lr}
     bl expect_one_element @ Da nicht gefaltet worden ist, muss es sich um einen Register handeln.
-    bl make_tos_changeable
     ldr r1, [r0, #offset_state_tos]
-    orrs tos, r1
     lsls r1, #3
     orrs tos, r1
+    bl tos_registerwechsel
+    orrs tos, r3
     bl hkomma
     pop {pc}
 
