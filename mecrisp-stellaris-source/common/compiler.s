@@ -302,69 +302,69 @@ execute:
   mov pc, r0
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_immediate|Flag_bxlr, "immediate" @ ( -- )
+  Wortbirne Flag_immediate, "immediate" @ ( -- )
 @ -----------------------------------------------------------------------------
   pushdaconst Flag_immediate & ~Flag_visible
   b.n setflags
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_immediate|Flag_bxlr, "inline" @ ( -- )
+  Wortbirne Flag_immediate|Flag_foldable_0, "inline" @ ( -- )
 setze_inlineflag:
 @ -----------------------------------------------------------------------------
   pushdaconst Flag_inline & ~Flag_visible
   b.n setflags
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_immediate|Flag_bxlr, "compileonly" @ ( -- )
+  Wortbirne Flag_immediate, "compileonly" @ ( -- )
 @ -----------------------------------------------------------------------------
   pushdaconst Flag_immediate_compileonly & ~Flag_visible
   b.n setflags
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_immediate|Flag_bxlr, "0-foldable" @ ( -- )
+  Wortbirne Flag_immediate|Flag_foldable_0, "0-foldable" @ ( -- )
 setze_faltbarflag:
 @ -----------------------------------------------------------------------------
   pushdaconst Flag_foldable_0 & ~Flag_visible
   b.n setflags
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_immediate|Flag_bxlr, "1-foldable" @ ( -- )
+  Wortbirne Flag_immediate|Flag_foldable_0, "1-foldable" @ ( -- )
 @ -----------------------------------------------------------------------------
   pushdaconst Flag_foldable_1 & ~Flag_visible
   b.n setflags
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_immediate|Flag_bxlr, "2-foldable" @ ( -- )
+  Wortbirne Flag_immediate|Flag_foldable_0, "2-foldable" @ ( -- )
 @ -----------------------------------------------------------------------------
   pushdaconst Flag_foldable_2 & ~Flag_visible
   b.n setflags
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_immediate|Flag_bxlr, "3-foldable" @ ( -- )
+  Wortbirne Flag_immediate|Flag_foldable_0, "3-foldable" @ ( -- )
 @ -----------------------------------------------------------------------------
   pushdaconst Flag_foldable_3 & ~Flag_visible
   b.n setflags
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_immediate|Flag_bxlr, "4-foldable" @ ( -- )
+  Wortbirne Flag_immediate|Flag_foldable_0, "4-foldable" @ ( -- )
 @ -----------------------------------------------------------------------------
   pushdaconst Flag_foldable_4 & ~Flag_visible
   b.n setflags
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_immediate|Flag_bxlr, "5-foldable" @ ( -- )
+  Wortbirne Flag_immediate|Flag_foldable_0, "5-foldable" @ ( -- )
 @ -----------------------------------------------------------------------------
   pushdaconst Flag_foldable_5 & ~Flag_visible
   b.n setflags
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_immediate|Flag_bxlr, "6-foldable" @ ( -- )
+  Wortbirne Flag_immediate|Flag_foldable_0, "6-foldable" @ ( -- )
 @ -----------------------------------------------------------------------------
   pushdaconst Flag_foldable_6 & ~Flag_visible
   b.n setflags
 
 @ -----------------------------------------------------------------------------
-  Wortbirne Flag_immediate|Flag_bxlr, "7-foldable" @ ( -- )
+  Wortbirne Flag_immediate|Flag_foldable_0, "7-foldable" @ ( -- )
 @ -----------------------------------------------------------------------------
   pushdaconst Flag_foldable_7 & ~Flag_visible
   b.n setflags

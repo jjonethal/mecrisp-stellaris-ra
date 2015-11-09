@@ -68,7 +68,7 @@ alloc_nullkleiner:
       bl prepare_single_compare @ Beinhaltet expect_one_element.
 
       pushdaconstw 0x17C0 @ asrs r0, r0, #31
-      bl chsmallplusminus
+      bl smalltworegisters
 
       ldr r1, =0xD500
       str r1, [r0, #offset_sprungtrampolin] @ Daraus wird später die sbcs/mvns-Opcodesequenz zusammengesetzt, falls nötig.
