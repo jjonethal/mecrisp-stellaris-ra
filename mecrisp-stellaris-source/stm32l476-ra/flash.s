@@ -19,7 +19,7 @@
 @ Schreiben und Löschen des Flash-Speichers im STM32L476.
 
 @ this chip has ecc flash memory protection and supports 64 bit writes
-@ as 2 consecutive word accesses to one 64 bit area 
+@ as 2 consecutive word accesses to one 64 bit area only
 
 @ Write and Erase Flash in STM32L476.
 @ Porting: Rewrite this ! You need hflash! and - as far as possible - cflash!
@@ -102,9 +102,12 @@ hexflashstore: @ ( x1 x2 x3 x4 addr -- ) x1 contains LSB of those 128 bits.
   stmia tos!,{r1}
 
   @ Wait for Flash BUSY Flag to be cleared
-  bl wait-flash-op-complete    
+  bl wait-flash-op-complete
+  
   stmia tos!,{r2}  @ program next 2 words
   stmia tos!,{r3}
+
+  @ wait again for flash op complete
   bl wait-flash-op-complete
 
   @ turn off programming mode
@@ -145,86 +148,6 @@ wait-flash-op-complete:
     bx LR
   
 
-
-@----- old stm32f303 stuff here for reference
-
-@ -----------------------------------------------------------------------------
-  Wortbirne Flag_visible, "hflash!" @ ( x Addr -- )
-  @ Schreibt an die auf 2 gerade Adresse in den Flash.
-h_flashkomma:
-@ -----------------------------------------------------------------------------
-  popda r0 @ Adresse
-  popda r1 @ Inhalt.
-
-  @ Ist die gewünschte Stelle im Flash-Dictionary ? Außerhalb des Forth-Kerns ?
-  ldr r3, =Kernschutzadresse
-  cmp r0, r3
-  blo 3f
-
-  ldr r3, =FlashDictionaryEnde
-  cmp r0, r3
-  bhs 3f
-
-
-  @ Prüfe Inhalt. Schreibe nur, wenn es NICHT -1 ist.
-  ldr r3, =0xFFFF
-  ands r1, r3  @ High-Halfword der Daten wegmaskieren
-  cmp r1, r3
-  beq 2f @ Fertig ohne zu Schreiben
-
-  @ Prüfe die Adresse: Sie muss auf 2 gerade sein:
-  movs r2, #1
-  ands r2, r0
-  cmp r2, #0
-  bne 3f
-
-  @ Ist an der gewünschten Stelle -1 im Speicher ?
-  ldrh r2, [r0]
-  cmp r2, r3
-  bne 3f
-
-  @ Okay, alle Proben bestanden. 
-
-  @ Im STM32L476 ist der Flash-Speicher gespiegelt, die wirkliche Adresse liegt weiter hinten !
-  @ Flash memory is mirrored, use true address later for write
-  ldr r2, =0x08000000
-  adds r0, r2
-
-  @ Bereit zum Schreiben !
-
-  @ Unlock Flash Control
-  ldr r2, =FLASH_KEYR
-  ldr r3, =0x45670123
-  str r3, [r2]
-  ldr r3, =0xCDEF89AB
-  str r3, [r2]
-
-  @ Enable write
-  ldr r2, =FLASH_CR
-  movs r3, #1 @ Select Flash programming
-  str r3, [r2]
-
-  @ Write to Flash !
-  strh r1, [r0]
-
-  @ Wait for Flash BUSY Flag to be cleared
-  ldr r2, =FLASH_SR
-
-1:  ldr r3, [r2]
-    @ ands r3, #1
-    movs r0, #1
-    ands r0, r3
-    bne 1b
-
-  @ Lock Flash after finishing this
-  ldr r2, =FLASH_CR
-  movs r3, #0x80
-  str r3, [r2]
-
-2:bx lr
-3:Fehler_Quit "Wrong address or data for writing flash !"
-
-
 @ -----------------------------------------------------------------------------
   Wortbirne Flag_visible, "flashpageerase" @ ( Addr -- )
   @ Löscht einen 2kb großen Flashblock  Deletes one 2kb Flash page
@@ -249,28 +172,46 @@ flashpageerase:
   movs r3, #2 @ Set Erase bit
   str r3, [r2]
 
+  @ page size 2048 byte
+  @ bit 10:0 byte address
+  @ bit 18:11 page number
+  @ bit 19 bank number
   @ Set page to erase
-  ldr r2, =FLASH_AR
-  str r0, [r2]
-
-  @ Start erasing
+  @ bit 19:11 -> bit 11:3
+  
+  lsl r0, #11-3   @ shift down bankNr and address address to BKER, PNB[7:0] 
+  ldrh r2, =0xFF8 @ bank and page mask
+  and r0, r2      @ mask out other bits
+  or r0,#2        @ select page erase  
   ldr r2, =FLASH_CR
-  movs r3, #0x42 @ Start + Erase
-  str r3, [r2]
+  strh r0, [r2]   @ write page and erase page
+
+  @ start erasing
+  movs r0,#1     @ select start
+  ldr r2, =FLASH_CR+2 
+  strh r0, [r2]  @ start page erase
 
     @ Wait for Flash BUSY Flag to be cleared
-    ldr r2, =FLASH_SR
-1:    ldr r3, [r2]
+    ldr r2, =FLASH_SR+2
+1:    ldrh r3, [r2]
       movs r0, #1
       ands r0, r3
       bne 1b
 
   @ Lock Flash after finishing this
-  ldr r2, =FLASH_CR
+  ldr r2, =FLASH_CR + 3
   movs r3, #0x80
-  str r3, [r2]
+  strb r3, [r2]
 
 2:pop {r0, r1, r2, r3, pc}
+
+  
+  
+
+@----- old stm32f303 stuff here for reference
+
+
+
 
 @ -----------------------------------------------------------------------------
   Wortbirne Flag_visible, "eraseflash" @ ( -- )

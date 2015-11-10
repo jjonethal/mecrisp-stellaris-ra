@@ -25,6 +25,8 @@
 @ -----------------------------------------------------------------------------
 
 .equ registerallocator, 1
+.equ flash16bytesblockwrite, 1
+
 @ .equ charkommaavailable, 1  Not available.
 
 @ -----------------------------------------------------------------------------
@@ -40,14 +42,14 @@
 
 @ Konstanten für die Größe des Ram-Speichers
 
-.equ RamAnfang, 0x20000000 @ Start of RAM          Porting: Change this !
-.equ RamEnde,   0x2000A000 @ End   of RAM.  40 kb. Porting: Change this !
+.equ RamAnfang, 0x20000000 @ Start of RAM                   Porting: Change this !
+.equ RamEnde,   0x20018000 @ End   of RAM.  96 kb. on SRAM2 Porting: Change this !
 
 @ Konstanten für die Größe und Aufteilung des Flash-Speichers
 
 .equ Kernschutzadresse,     0x00005000 @ Darunter wird niemals etwas geschrieben ! Mecrisp core never writes flash below this address.
 .equ FlashDictionaryAnfang, 0x00005000 @ 20 kb für den Kern reserviert...           20 kb Flash reserved for core.
-.equ FlashDictionaryEnde,   0x00040000 @ 236 kb Platz für das Flash-Dictionary     236 kb Flash available. Porting: Change this !
+.equ FlashDictionaryEnde,   0x00100000 @ 1024 kb Platz für das Flash-Dictionary    1024 kb Flash available. Porting: Change this !
 .equ Backlinkgrenze,        RamAnfang  @ Ab dem Ram-Start.
 
 
@@ -74,7 +76,7 @@ Reset: @ Einsprung zu Beginn
    @ Catch the pointers for Flash dictionary
    .include "../common/catchflashpointers.s"
 
-   welcome " for STM32F303 by Matthias Koch"
+   welcome " for STM32L476 by Matthias Koch "
 
    @ Ready to fly !
    .include "../common/boot.s"

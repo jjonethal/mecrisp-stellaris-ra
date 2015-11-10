@@ -20,81 +20,82 @@
 @ Terminal code and initialisations.
 @ Porting: Rewrite this !
 
-  .equ GPIOA_BASE      ,   0x48000000
-  .equ GPIOA_MODER     ,   GPIOA_BASE + 0x00
-  .equ GPIOA_OTYPER    ,   GPIOA_BASE + 0x04
-  .equ GPIOA_OSPEEDR   ,   GPIOA_BASE + 0x08
-  .equ GPIOA_PUPDR     ,   GPIOA_BASE + 0x0C
-  .equ GPIOA_IDR       ,   GPIOA_BASE + 0x10
-  .equ GPIOA_ODR       ,   GPIOA_BASE + 0x14
-  .equ GPIOA_BSRR      ,   GPIOA_BASE + 0x18
-  .equ GPIOA_LCKR      ,   GPIOA_BASE + 0x1C
-  .equ GPIOA_AFRL      ,   GPIOA_BASE + 0x20
-  .equ GPIOA_AFRH      ,   GPIOA_BASE + 0x24
-  .equ GPIOA_BRR       ,   GPIOA_BASE + 0x28
+  .equ GPIOD_BASE      ,   0x48000C00
+  .equ GPIOD_MODER     ,   GPIOD_BASE + 0x00
+  .equ GPIOD_OTYPER    ,   GPIOD_BASE + 0x04
+  .equ GPIOD_OSPEEDR   ,   GPIOD_BASE + 0x08
+  .equ GPIOD_PUPDR     ,   GPIOD_BASE + 0x0C
+  .equ GPIOD_IDR       ,   GPIOD_BASE + 0x10
+  .equ GPIOD_ODR       ,   GPIOD_BASE + 0x14
+  .equ GPIOD_BSRR      ,   GPIOD_BASE + 0x18
+  .equ GPIOD_LCKR      ,   GPIOD_BASE + 0x1C
+  .equ GPIOD_AFRL      ,   GPIOD_BASE + 0x20
+  .equ GPIOD_AFRH      ,   GPIOD_BASE + 0x24
+  .equ GPIOD_BRR       ,   GPIOD_BASE + 0x28
+  .equ GPIOD_ASCR      ,   GPIOD_BASE + 0x2C
 
   .equ RCC_BASE        ,   0x40021000
-  .equ RCC_AHBENR      ,   RCC_BASE + 0x14
-  .equ RCC_APB2ENR     ,   RCC_BASE + 0x18
-  .equ RCC_APB1ENR     ,   RCC_BASE + 0x1C
+  .equ RCC_AHB1ENR     ,   RCC_BASE + 0x48
+  .equ RCC_AHB2ENR     ,   RCC_BASE + 0x4C @ gpiod  - b3
+  .equ RCC_APB1ENR1    ,   RCC_BASE + 0x58 @ usart2 - b17
 
-        @ Note that the STM32F051 and STM32F303 USART is different to the bigger STM32F1/STM32F4 chips.
-
-        .equ USART1_BASE     ,   0x40013800
+        @ stm32l476 discovery board uses pd5, pd6 on usart2
         
-        .equ USART1_CR1      ,   USART1_BASE + 0x00
-        .equ USART1_CR2      ,   USART1_BASE + 0x04
-        .equ USART1_CR3      ,   USART1_BASE + 0x08
-        .equ USART1_BRR      ,   USART1_BASE + 0x0C
-        .equ USART1_GTPR     ,   USART1_BASE + 0x10
-        .equ USART1_RTOR     ,   USART1_BASE + 0x14
-        .equ USART1_RQR      ,   USART1_BASE + 0x18
-        .equ USART1_ISR      ,   USART1_BASE + 0x1C
-        .equ USART1_ICR      ,   USART1_BASE + 0x20
-        .equ USART1_RDR      ,   USART1_BASE + 0x24
-        .equ USART1_TDR      ,   USART1_BASE + 0x28
+        .equ USART2_BASE     ,   0x40004400
+        
+        .equ USART2_CR1      ,   USART2_BASE + 0x00
+        .equ USART2_CR2      ,   USART2_BASE + 0x04
+        .equ USART2_CR3      ,   USART2_BASE + 0x08
+        .equ USART2_BRR      ,   USART2_BASE + 0x0C
+        .equ USART2_GTPR     ,   USART2_BASE + 0x10
+        .equ USART2_RTOR     ,   USART2_BASE + 0x14
+        .equ USART2_RQR      ,   USART2_BASE + 0x18
+        .equ USART2_ISR      ,   USART2_BASE + 0x1C
+        .equ USART2_ICR      ,   USART2_BASE + 0x20
+        .equ USART2_RDR      ,   USART2_BASE + 0x24
+        .equ USART2_TDR      ,   USART2_BASE + 0x28
 
-        @ Flags for USART1_ISR register:
+        @ Flags for USART2_ISR register:
           .equ RXNE            ,   BIT5
           .equ TC              ,   BIT6
           .equ TXE             ,   BIT7
 
 @ -----------------------------------------------------------------------------
-uart_init: @ ( -- ) A few bits are different to STM32F051
+uart_init: @ ( -- ) A few bits are different 
 @ -----------------------------------------------------------------------------
 
   @ Enable all GPIO peripheral clock
-  ldr r1, = RCC_AHBENR
-  ldr r0, = BIT22+BIT21+BIT20+BIT19+BIT18+BIT17 + 0x14 @ $14 is Reset value
+  ldr r1, = RCC_AHB2ENR
+  ldr r0, = BIT7+BIT6+BIT5+BIT4+BIT3+BIT2+BIT1+BIT0 @ $0 is Reset value
   str r0, [r1]
 
-  @ Enable the USART1 peripheral clock
-  ldr r1, = RCC_APB2ENR
-  ldr r0, = BIT14
+  @ Enable the USART2 peripheral clock
+  ldr r1, = RCC_APB1ENR1
+  ldr r0, = BIT17
   str r0, [r1]
 
-  @ Set PORTA pins 9 and 10 in alternate function mode
-  ldr r1, = GPIOA_MODER
-  ldr r0, = 0xA8280000 @ A800 0000 is Reset value for Port A, and switch PA9 and PA10 to alternate function
+  @ Set PORTD pins 5 and 6 in alternate function mode
+  ldr r1, = GPIOD_MODER
+  ldr r0, = 0xFFFFEBFF @ FFFF FFFF is Reset value for Port D, and switch PD5 and PD6 to alternate function
   str r0, [r1]
 
-  @ Set alternate function 7 to enable USART 1 pins on Port A
-  ldr r1, = GPIOA_AFRH
-  ldr r0, = 0x770      @ Alternate function 7 for TX and RX pins of USART1 on PORTA 
+  @ Set alternate function 7 to enable USART 2 pins on Port D
+  ldr r1, = GPIOD_AFRL
+  ldr r0, = 0x07700000   @ Alternate function 7 for TX and RX pins of USART2 on PORTD 5 and 6 
   str r0, [r1]
 
   @ Configure BRR by deviding the bus clock with the baud rate
-  ldr r1, = USART1_BRR
-  movs r0, #0x46  @ 115200 bps, ein ganz kleines bisschen langsamer...
+  ldr r1, = USART2_BRR
+  movs r0, #(4000000 + (4000000/8)) / 16  @ 115200 bps, ein ganz kleines bisschen langsamer...
   str r0, [r1]
 
   @ disable overrun detection before UE to avoid USART blocking on overflow
-  ldr r1, =USART1_CR3
+  ldr r1, =USART2_CR3
   ldr r0, =BIT12 @ USART_CR3_OVRDIS
   str r0, [r1]
 
   @ Enable the USART, TX, and RX circuit
-  ldr r1, =USART1_CR1
+  ldr r1, =USART2_CR1
   ldr r0, =BIT3+BIT2+BIT0 @ USART_CR1_UE | USART_CR1_TE | USART_CR1_RE
   str r0, [r1]
 
@@ -114,7 +115,7 @@ serial_emit: @ ( c -- ) Emit one character
    drop
    beq 1b
 
-   ldr r2, =USART1_TDR
+   ldr r2, =USART2_TDR
    strb tos, [r2]         @ Output the character
    drop
 
@@ -132,7 +133,7 @@ serial_key: @ ( -- c ) Receive one character
    beq 1b
 
    pushdatos
-   ldr r2, =USART1_RDR
+   ldr r2, =USART2_RDR
    ldrb tos, [r2]         @ Fetch the character
 
    pop {pc}
@@ -145,7 +146,7 @@ serial_qemit:  @ ( -- ? ) Ready to send a character ?
    bl pause
 
    pushdaconst 0  @ False Flag
-   ldr r0, =USART1_ISR
+   ldr r0, =USART2_ISR
    ldr r1, [r0]     @ Fetch status
    movs r0, #TXE
    ands r1, r0
@@ -161,7 +162,7 @@ serial_qkey:  @ ( -- ? ) Is there a key press ?
    bl pause
 
    pushdaconst 0  @ False Flag
-   ldr r0, =USART1_ISR
+   ldr r0, =USART2_ISR
    ldr r1, [r0]     @ Fetch status
    movs r0, #RXNE
    ands r1, r0
