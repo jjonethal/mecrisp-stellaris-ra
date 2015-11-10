@@ -4,15 +4,15 @@ ARMGNU?=arm-none-eabi
 COPS = -Wall  -Os -nostdlib -nostartfiles -ffreestanding -save-temps
 AOPS = --warn --fatal-warnings
 
-all : mecrisp-stellaris-stm32f303.bin 
+all : mecrisp-stellaris-stm32l476.bin 
 
-mecrisp-stellaris-stm32f303.o : mecrisp-stellaris-stm32f303.s
-	$(ARMGNU)-as mecrisp-stellaris-stm32f303.s -o mecrisp-stellaris-stm32f303.o
+mecrisp-stellaris-stm32l476.o : mecrisp-stellaris-stm32l476.s
+	$(ARMGNU)-as mecrisp-stellaris-stm32l476.s -o mecrisp-stellaris-stm32l476.o
 
-mecrisp-stellaris-stm32f303.bin : memmap mecrisp-stellaris-stm32f303.o
-	$(ARMGNU)-ld -o mecrisp-stellaris-stm32f303.elf -T memmap mecrisp-stellaris-stm32f303.o
-	$(ARMGNU)-objdump -D mecrisp-stellaris-stm32f303.elf > mecrisp-stellaris-stm32f303.list
-	$(ARMGNU)-objcopy mecrisp-stellaris-stm32f303.elf mecrisp-stellaris-stm32f303.bin -O binary
+mecrisp-stellaris-stm32l476.bin : memmap mecrisp-stellaris-stm32l476.o
+	$(ARMGNU)-ld -o mecrisp-stellaris-stm32l476.elf -T memmap mecrisp-stellaris-stm32l476.o
+	$(ARMGNU)-objdump -D mecrisp-stellaris-stm32l476.elf > mecrisp-stellaris-stm32l476.list
+	$(ARMGNU)-objcopy mecrisp-stellaris-stm32l476.elf mecrisp-stellaris-stm32l476.bin -O binary
 
 clean:
 	rm -f *.bin

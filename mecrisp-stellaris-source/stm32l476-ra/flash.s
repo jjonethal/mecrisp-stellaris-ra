@@ -102,29 +102,23 @@ hexflashstore: @ ( x1 x2 x3 x4 addr -- ) x1 contains LSB of those 128 bits.
   stmia tos!,{r1}
 
   @ Wait for Flash BUSY Flag to be cleared
-1:  ldr r1, =FLASH_SR+2
-    ldrh r0, [r1]
-    movs r1, #1
-    ands r0, r1
-    bne 1b
-  @ Wait for EOP Flag to be Set
-1:  ldr r1, =FLASH_SR
-    ldrh r0, [r1]
-    movs r1, #1
-    ands r0, r1
-    bne 1b
-clear eop flag
-ldr r1, =FLASH_SR
-    movs r0, #1
-    str r0, [r1]
-    
-  stmia tos!,{r2}
+  bl wait-flash-op-complete    
+  stmia tos!,{r2}  @ program next 2 words
   stmia tos!,{r3}
+  bl wait-flash-op-complete
 
+  @ turn off programming mode
+  ldr r2, =FLASH_CR
+  ldrh r0,[r2]
+  bic r0, #0
+  strh r0,[r2]
 
+  @ lock flash again
+  ldr r2, =FLASH_CR + 2
+  ldrh r0,[r2]
+  bis r0, #31
+  strh r0,[r2]
 
-    
-  
   drop @ Forget destination address
   pop {r0, r1, r2, r3, r4, r5, pc}
 
@@ -146,7 +140,7 @@ wait-flash-op-complete:
 @ clear eop flag
     ldr r1, =FLASH_SR
     movs r0, #1
-    str r0, [r1]
+    strh r0, [r1]
     pop {r0, r1}
     bx LR
   
