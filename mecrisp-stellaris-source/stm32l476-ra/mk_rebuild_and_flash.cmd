@@ -16,7 +16,7 @@ mingw32-make.exe clean all
 
 :: flashing
 if not ERRORLEVEL 1 (
-  %STLINK% -P mecrisp-stellaris-stm32f411.bin 0x08000000
+  %STLINK% -P mecrisp-stellaris-stm32l476.bin 0x08000000
   %STLINK% -HardRst
   @ping -n 3 127.0.0.1 > nul:
 ) else (

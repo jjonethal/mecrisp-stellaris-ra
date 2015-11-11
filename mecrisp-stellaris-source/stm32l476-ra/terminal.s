@@ -86,7 +86,7 @@ uart_init: @ ( -- ) A few bits are different
 
   @ Configure BRR by deviding the bus clock with the baud rate
   ldr r1, = USART2_BRR
-  movs r0, #(4000000 + (4000000/8)) / 16  @ 115200 bps, ein ganz kleines bisschen langsamer...
+  movs r0, #(4000000 + (115200/2)) / 115200  @ 115200 bps, ein ganz kleines bisschen langsamer...
   str r0, [r1]
 
   @ disable overrun detection before UE to avoid USART blocking on overflow

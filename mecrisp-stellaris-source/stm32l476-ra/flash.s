@@ -28,7 +28,7 @@
 .equ FLASH_Base, 0x40022000
 
 .equ FLASH_ACR,      FLASH_Base + 0x00 @ Flash Access Control Register
-.equ FLASH_PDKEYR    FLASH_Base + 0x04 @ Flash Power-down key register
+.equ FLASH_PDKEYR,   FLASH_Base + 0x04 @ Flash Power-down key register
 .equ FLASH_KEYR,     FLASH_Base + 0x08 @ Flash Key Register
 .equ FLASH_OPTKEYR,  FLASH_Base + 0x0C @ Flash Option Key Register
 .equ FLASH_SR,       FLASH_Base + 0x10 @ Flash Status Register
@@ -102,31 +102,31 @@ hexflashstore: @ ( x1 x2 x3 x4 addr -- ) x1 contains LSB of those 128 bits.
   stmia tos!,{r1}
 
   @ Wait for Flash BUSY Flag to be cleared
-  bl wait-flash-op-complete
+  bl waitflashopcomplete
   
   stmia tos!,{r2}  @ program next 2 words
   stmia tos!,{r3}
 
   @ wait again for flash op complete
-  bl wait-flash-op-complete
+  bl waitflashopcomplete
 
   @ turn off programming mode
   ldr r2, =FLASH_CR
   ldrh r0,[r2]
-  bic r0, #0
+  bic r0, #1
   strh r0,[r2]
 
   @ lock flash again
-  ldr r2, =FLASH_CR + 2
-  ldrh r0,[r2]
-  bis r0, #31
-  strh r0,[r2]
+  ldr r2, =FLASH_CR
+  ldr r0,[r2]
+  orr r0, #0x80000000
+  str r0,[r2]
 
   drop @ Forget destination address
   pop {r0, r1, r2, r3, r4, r5, pc}
 
 
-wait-flash-op-complete:
+waitflashopcomplete:
   push {r0, r1} 
   @ Wait for Flash BUSY Flag to be cleared
 1:  ldr r1, =FLASH_SR+2
@@ -135,15 +135,6 @@ wait-flash-op-complete:
     ands r0, r1
     bne 1b
 @ Wait for EOP Flag to be Set
-2:  ldr r1, =FLASH_SR
-    ldrh r0, [r1]
-    movs r1, #1
-    ands r0, r1
-    be 2b
-@ clear eop flag
-    ldr r1, =FLASH_SR
-    movs r0, #1
-    strh r0, [r1]
     pop {r0, r1}
     bx LR
   
@@ -179,10 +170,10 @@ flashpageerase:
   @ Set page to erase
   @ bit 19:11 -> bit 11:3
   
-  lsl r0, #11-3   @ shift down bankNr and address address to BKER, PNB[7:0] 
+  lsr r0, #11-3   @ shift down bankNr and address address to BKER, PNB[7:0]
   ldrh r2, =0xFF8 @ bank and page mask
   and r0, r2      @ mask out other bits
-  or r0,#2        @ select page erase  
+  orr r0,#2       @ select page erase  
   ldr r2, =FLASH_CR
   strh r0, [r2]   @ write page and erase page
 
