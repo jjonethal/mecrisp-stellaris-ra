@@ -36,7 +36,10 @@
 .equ FLASH_ECCR,     FLASH_Base + 0x18 @ Flash ECC register
 .equ FLASH_OPTR,     FLASH_Base + 0x20 @ Flash option register
 .equ FLASH_PCROP1SR, FLASH_Base + 0x1C @ Flash Bank 1 PCROP Start address register
-
+.equ bit9, 1 << 9
+.equ bit10, 1 << 10
+.equ bit11, 1 << 11
+.equ bit12, 1 << 12
 @for stm32l476 we will introduce 8 byte mode later
 
 hexflashstore_fehler:
@@ -171,15 +174,15 @@ flashpageerase:
   @ bit 18:11 page number
   @ bit 19 bank number
   @ Set page to erase
-  @ bit 19:11 -> bit 11:3
+  @ shift down bits 19:11 -> bit 11:3
   movs r1, #11-3
   lsrs r0, r1      @ shift down bankNr and address address to BKER, PNB[7:0]
-  ldr r2, =0xFF8  @ bank and page mask
+  ldr r2, =0xFF8   @ bank and page mask
   ands r0, r2      @ mask out other bits
   movs r1 ,#2
   orrs r0, r1      @ select page erase  
   ldr r2, =FLASH_CR
-  strh r0, [r2]   @ write page and erase page
+  strh r0, [r2]    @ write page and erase page
 
   @ start erasing
   movs r0,#1     @ select start
@@ -197,16 +200,31 @@ flashpageerase:
   ldr r2, =FLASH_CR + 3
   movs r3, #0x80
   strb r3, [r2]
-
+  
+  @ clear cache
+  @ save old cache settings
+  ldr r2, =FLASH_ACR
+  ldr r1, [r2]
+  push {r1}
+  
+  @ turn cache off
+  ldr r0,=bit10+bit9
+  bics r1, r0
+  str r1, [r2]
+  
+  @ reset cache
+  ldr r0, =bit12+bit11
+  orrs r1, r0
+  str r1, [r2]
+  
+  @ restore flash settings
+  pop {r1}  
+  str r1, [r2]
+  
 2:pop {r0, r1, r2, r3, pc}
 
 .ltorg  
-  
-
-@----- old stm32f303 stuff here for reference
-
-
-
+ 
 
 @ -----------------------------------------------------------------------------
   Wortbirne Flag_visible, "eraseflash" @ ( -- )
@@ -221,13 +239,14 @@ eraseflash_intern:
 1:      ldrh r3, [r0]
         cmp r3, r2
         beq 2f
-          pushda r0
-            dup
-            write "Erase block at  "
-            bl hexdot
-            writeln " from Flash"
-          bl flashpageerase
-2:      adds r0, #2
+        pushda r0
+        dup
+        write "Erase block at  "
+        bl hexdot
+        writeln " from Flash"
+        bl flashpageerase
+2:      ldr r3, =0x800
+        adds r0, #2
         cmp r0, r1
         bne 1b
   writeln "Finished. Reset !"
