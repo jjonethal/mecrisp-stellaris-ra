@@ -390,7 +390,7 @@ dnegate:
     bl dup_allocator
     bl make_tos_changeable
     pushdaconstw 0x17C0 @ asrs r0, r0, #31
-    bl chsmallplusminus
+    bl smalltworegisters
     pop {pc}
 
  .ltorg
