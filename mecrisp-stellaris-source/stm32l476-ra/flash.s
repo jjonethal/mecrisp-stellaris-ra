@@ -113,18 +113,21 @@ hexflashstore: @ ( x1 x2 x3 x4 addr -- ) x1 contains LSB of those 128 bits.
   @ turn off programming mode
   ldr r2, =FLASH_CR
   ldrh r0,[r2]
-  bic r0, #1
+  movs r1, #1
+  bics r0, r1
   strh r0,[r2]
 
   @ lock flash again
   ldr r2, =FLASH_CR
   ldr r0,[r2]
-  orr r0, #0x80000000
+  ldr r1, =0x80000000
+  orrs r0, r1
   str r0,[r2]
 
   drop @ Forget destination address
   pop {r0, r1, r2, r3, r4, r5, pc}
 
+.ltorg
 
 waitflashopcomplete:
   push {r0, r1} 
@@ -169,11 +172,12 @@ flashpageerase:
   @ bit 19 bank number
   @ Set page to erase
   @ bit 19:11 -> bit 11:3
-  
-  lsr r0, #11-3   @ shift down bankNr and address address to BKER, PNB[7:0]
-  ldrh r2, =0xFF8 @ bank and page mask
-  and r0, r2      @ mask out other bits
-  orr r0,#2       @ select page erase  
+  movs r1, #11-3
+  lsrs r0, r1      @ shift down bankNr and address address to BKER, PNB[7:0]
+  ldr r2, =0xFF8  @ bank and page mask
+  ands r0, r2      @ mask out other bits
+  movs r1 ,#2
+  orrs r0, r1      @ select page erase  
   ldr r2, =FLASH_CR
   strh r0, [r2]   @ write page and erase page
 
@@ -196,7 +200,7 @@ flashpageerase:
 
 2:pop {r0, r1, r2, r3, pc}
 
-  
+.ltorg  
   
 
 @----- old stm32f303 stuff here for reference
@@ -235,3 +239,4 @@ eraseflash_intern:
 @ -----------------------------------------------------------------------------
         popda r0
         b.n eraseflash_intern
+.ltorg
