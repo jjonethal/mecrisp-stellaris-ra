@@ -245,8 +245,7 @@ eraseflash_intern:
         bl hexdot
         writeln " from Flash"
         bl flashpageerase
-2:      ldr r3, =0x800
-        adds r0, #2
+2:      adds r0, #2
         cmp r0, r1
         bne 1b
   writeln "Finished. Reset !"
