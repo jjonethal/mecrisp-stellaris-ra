@@ -18,13 +18,11 @@
 
 .syntax unified
 .cpu cortex-m4
-@ .cpu cortex-m0
 .thumb
 
 @ -----------------------------------------------------------------------------
 @ Swiches for capabilities of this chip
 @ -----------------------------------------------------------------------------
-@ .equ m0core, 1
 .equ registerallocator, 1
 .equ flash16bytesblockwrite, 1
 
