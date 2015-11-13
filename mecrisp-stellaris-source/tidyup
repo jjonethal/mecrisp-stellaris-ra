@@ -104,6 +104,14 @@ cd stm32f429
 make clean
 cd ..
 
+cd stm32l476
+make clean
+cd ..
+
+cd stm32l476-ra
+make clean
+cd ..
+
 cd linux
 rm mecrisp-stellaris-linux.o
 rm mecrisp-stellaris-linux
