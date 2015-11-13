@@ -1,7 +1,8 @@
 \ prj.txt
 eraseflash
+
 compiletoflash
-include common\disassembler-m0.txt
-include common\dump.txt
+include ..\common\disassembler-m3.txt
+include ..\common\dump.txt
 include bits.fth
 include clock.fth
