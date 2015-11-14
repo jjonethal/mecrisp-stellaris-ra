@@ -14,5 +14,8 @@ set PATH=%GNU_ARM_BIN%;C:\MinGW\bin;C:\MinGW\msys\1.0\bin;%PATH%
 
 mingw32-make.exe clean
 mingw32-make.exe all
-
-ping -n 3 127.0.0.1 > nul
+if errorlevel 1 (
+  pause
+) else (
+  ping -n 3 127.0.0.1 > nul
+)
