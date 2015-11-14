@@ -25,6 +25,7 @@
 @ -----------------------------------------------------------------------------
 .equ registerallocator, 1
 .equ flash16bytesblockwrite, 1
+.equ turbo, 1
 
 @ .equ charkommaavailable, 1  Not available.
 
@@ -66,11 +67,29 @@
 .include "../common/forth-core.s"
 
 @ -----------------------------------------------------------------------------
+@ turbo mode
+@ -----------------------------------------------------------------------------
+.ifdef turbo
+ .include "turbo.s"
+.endif
+
+@ -----------------------------------------------------------------------------
 Reset: @ Einsprung zu Beginn
 @ -----------------------------------------------------------------------------
    @ Initialisierungen der Hardware, habe und brauche noch keinen Datenstack dafür
+
+.ifdef turbo
+   @ activate 48 Mhz mode
+   bl clk_48mhz_msi
+.endif
+
    @ Initialisations for Terminal hardware, without Datastack.
    bl uart_init
+
+.ifdef turbo
+   @ adjust usart baud rate for 48 MHz
+   bl serial_115200_48MHZ
+.endif
 
    @ Catch the pointers for Flash dictionary
    .include "../common/catchflashpointers.s"
