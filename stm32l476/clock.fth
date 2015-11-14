@@ -29,7 +29,7 @@ $3 2 lshift    constant RCC_CFGR_SWS          \ System clock switch status 00:MS
 $3             constant RCC_CFGR_SW           \ System clock switch 00:MSI 01:HSI 10:HSE 11:PLL
 
 : hsi-on  ( -- )  RCC_CR_HSION RCC_CR bis! ;  \ turn hsi on
-: hsi-off  ( -- )  RCC_CR_HSION RCC_CR bic! ; \ turn hsi on
+: hsi-off  ( -- )  RCC_CR_HSION RCC_CR bic! ; \ turn hsi off
 : hsi-on?  ( -- f )                           \ is hsi on ?
    RCC_CR_HSIRDY RCC_CR bit@ ;
 : wait-hsi  ( -- )                            \ turn on hsi wait until ready
@@ -137,7 +137,7 @@ USART_CR1 USART2 + constant USART2_CR1
    1 RCC_CR_MSIRGSEL RCC_CR bits!
    wait-msi clk-src-msi
    usart-baud-115200-16MHz  ;   
-: 48-mhz-msi-no-hsi  ( -- )                          \ 48 mhz msi mode
+: 48-mhz-msi-no-hsi  ( -- )                   \ 48 mhz msi mode
    voltage-scale-1
    flash-latency-vs1-48
    wait-voltage-scale-1
