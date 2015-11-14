@@ -17,7 +17,7 @@
 @
 
 ;------------------------------------------------------------------------------
-This is the third stable release of Mecrisp-Stellaris,
+TODO: This is the third stable release of Mecrisp-Stellaris,
 a port of Mecrisp to the ARM Cortex M architecture.
 
 It runs out of the box on:
@@ -65,18 +65,19 @@ Communication is via serial 115200 baud 8N1 over
   - USCI0  in MSP432P401R  (TX on P1.3, RX on P1.2, connected to USB-serial bridge)
   - UART   in LPC1114FN28  (TX on P1.7, RX on P1.6)
   - UART   in LPC1115FBD48 (TX on P1.7, RX on P1.6)
-  - USART1 in STM32F051 (TX on PA9, RX on PA10)
-  - USART1 in STM32F030F4 (TX on PA9, RX on PA10)
-  - USART1 in STM32F100 (TX on PA9, RX on PA10)
-  - USART1 in STM32F103 (TX on PA9, RX on PA10)
-  - USART1 in STM32F303 (TX on PA9, RX on PA10)
-  - USART1 in STM32L053C8 (TX on PA9, RX on PA10)
-  - USART2 in STM32L152 (TX on PA2, RX on PA3 connected to USB-serial bridge on Nucleo board)
-  - USART2 in STM32F401 (TX on PA2, RX on PA3 connected to USB-serial bridge on Nucleo board)
-  - USART2 in STM32F411 (TX on PA2, RX on PA3 connected to USB-serial bridge on Nucleo board)
-  - USART2 in STM32F407 (TX on PA2, RX on PA3)
-  - USART1 in STM32F429 (TX on PA9, RX on PA10)
-  - UART0  in KL25Z128  (connected to USB-serial bridge on Freedom board)
+  - USART1 in STM32F051    (TX on PA9, RX on PA10)
+  - USART1 in STM32F030F4  (TX on PA9, RX on PA10)
+  - USART1 in STM32F100    (TX on PA9, RX on PA10)
+  - USART1 in STM32F103    (TX on PA9, RX on PA10)
+  - USART1 in STM32F303    (TX on PA9, RX on PA10)
+  - USART1 in STM32F429    (TX on PA9, RX on PA10)
+  - USART1 in STM32L053C8  (TX on PA9, RX on PA10)
+  - USART2 in STM32F401    (TX on PA2, RX on PA3 connected to USB-serial bridge on Nucleo board)
+  - USART2 in STM32F407    (TX on PA2, RX on PA3)
+  - USART2 in STM32F411    (TX on PA2, RX on PA3 connected to USB-serial bridge on Nucleo board)
+  - USART2 in STM32L152    (TX on PA2, RX on PA3 connected to USB-serial bridge on Nucleo board)
+  - USART2 in STM32L476    (TX on PD5, RX on PD6 connected to USB-serial bridge on Discovery board)
+  - UART0  in KL25Z128     (connected to USB-serial bridge on Freedom board)
   - UART5  in LM4F232
   - UART0  in MK20DX256 (RX1/TX1 on Teensy 3.1.  Physical pins #2/#3 (these are also Digital IO 0/1 lines)
     	      		Digital IO pins 18/19 are setup for CTS/RTS respectively
@@ -179,6 +180,26 @@ Hardware and configuration for STM32L152:
   st-flash write mecrisp-stellaris-stm32l152.bin 0x08000000
 
   On startup, this runs with internal 16 MHz HSI clock.
+
+;------------------------------------------------------------------------------
+Hardware and configuration for STM32L476:
+;------------------------------------------------------------------------------
+  Connect USB cable to ST-Link USB port.
+  Terminal is included into the debug section on Discovery boards.
+  
+  Flashing is possible with st-flash:
+  https://github.com/texane/stlink
+  on Windows using STLINK Tools from ST website:
+  http://www.st.com/web/en/catalog/tools/PF258168#
+
+  Flash memory is mirrored in hardware starting from address 0. Mecrisp uses
+  the low address range to generate short opcodes for calling core words, but
+  for flashing the binary, you have to use the "true address" $08000000.
+  st-flash erase
+  st-flash write mecrisp-stellaris-stm32l476.bin 0x08000000
+
+  On startup, this runs with internal 48 MHz MSI clock. Currently flash ECC is
+  supported. (JJ:O)
 
 ;------------------------------------------------------------------------------
 Hardware and configuration for STM32F401 and STM32F411:
@@ -753,7 +774,7 @@ like signed double numbers.
 String routines:
 
         type            ( c-addr length -- )
-                        Prints a counted string.
+                        Prints a string.
 
         s" Hello"       Compiles a string and
                         ( -- c-addr length )
@@ -762,6 +783,9 @@ String routines:
         ." Hello"       Compiles a string and
                         ( -- )
                         prints it when executed.
+
+        ( Comment )     Ignore Comment
+        \ Comment       Comment to end of line
 
         cr              ( -- ) Emits line feed
         bl              ( -- 32 ) ASCII code for Space
@@ -1318,6 +1342,39 @@ Interrupts:
 
         irq-adc         ( -- a-addr ) Memory locations for IRQ-Hooks
         irq-dac
+        irq-exti4
+        irq-exti3
+        irq-exti2
+        irq-exti1
+        irq-exti0
+        irq-tim2
+        irq-tim3
+        irq-tim4
+
+  Look into vectors.s and interrupts.s to add more interrupts.
+  
+;------------------------------------------------------------------------------
+; Specials for STM32L476:
+;------------------------------------------------------------------------------
+
+Flash:
+        initflash       ( -- ) Clear buffers
+        hflash!         ( u|n a-addr -- ) Writes halfword to flash (buffered)
+        flushflash      ( -- ) Flush flash buffers
+                               needed if you comma in values after create
+        eraseflash      ( -- ) Erases everything. Clears Ram. Restarts Forth.
+
+        eraseflashfrom  ( a-addr -- ) Starts erasing at this address.
+                                      Clears Ram. Restarts Forth.
+
+        flashpageerase  ( a-addr -- ) Erase one 2048 byte flash page only. Take care:
+                                      No Reset, no dictionary reinitialisation.
+
+        16flash!        ( x1 x2 x3 x4 addr -- ) Flash 4 words aligned at 8 byte boundary at once
+
+Interrupts:
+
+        irq-adc         ( -- a-addr ) Memory locations for IRQ-Hooks
         irq-exti4
         irq-exti3
         irq-exti2

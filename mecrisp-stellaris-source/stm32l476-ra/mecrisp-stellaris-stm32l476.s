@@ -43,7 +43,7 @@
 @ Konstanten für die Größe des Ram-Speichers
 
 .equ RamAnfang, 0x20000000 @ Start of RAM                   Porting: Change this !
-.equ RamEnde,   0x20018000 @ End   of RAM.  96 kb. on SRAM2 Porting: Change this !
+.equ RamEnde,   0x20018000 @ End   of RAM.  96 kb. on SRAM1 Porting: Change this !
 
 @ Konstanten für die Größe und Aufteilung des Flash-Speichers
 
