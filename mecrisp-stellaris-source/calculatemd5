@@ -106,6 +106,14 @@ cd stm32f429
 md5sum *.bin
 cd ..
 
+cd stm32l476
+md5sum *.bin
+cd ..
+
+cd stm32l476-ra
+md5sum *.bin
+cd ..
+
 cd linux
 md5sum mecrisp-stellaris-linux
 cd ..

@@ -412,7 +412,7 @@
 
   - Many new examples for Teensy 3.1 by Andreas Wagner
   - Bugfix for STM32L152 vector map and additional interrupt vectors,
-    more examples for STM L152 Discovery by Абдрахимов Илья
+    more examples for STM L152 Discovery by Абдрахимов Илья (Ilya Abdrahimov)
 
 31.10.2015, Matthias Koch, Mecrisp-Stellaris RA 1.1
 
@@ -430,3 +430,10 @@
 08.11.2015, Matthias Koch, Mecrisp-Stellaris RA 1.4
 
   - Small improvements for negate
+
+14.11.2015, Matthias Koch, Mecrisp-Stellaris RA 1.5
+
+  - Smaller disassemblers
+  - RTC examples for STM L152 Discovery by Абдрахимов Илья (Ilya Abdrahimov)
+  - Contribution by Jean Jonethal:
+      New target: STM L476 Discovery

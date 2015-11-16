@@ -104,6 +104,15 @@ cd stm32f429
 make clean all && ls -l *.bin && md5sum *.bin && cp *.bin ../../stm32f429
 cd ..
 
+cd stm32l476
+make clean all && ls -l *.bin && md5sum *.bin && cp *.bin ../../stm32l476
+cd ..
+
+cd stm32l476-ra
+make clean all && ls -l *.bin && md5sum *.bin && cp *.bin ../../stm32l476-ra
+cd ..
+
+
 # Intel Hex images for STM targets:
 
 cd ..
@@ -158,6 +167,14 @@ cd ..
 
 cd stm32f429
 arm-none-eabi-objcopy --change-addresses 0x08000000 -I binary -O ihex mecrisp-stellaris-stm32f429.bin mecrisp-stellaris-stm32f429.hex
+cd ..
+
+cd stm32l476
+arm-none-eabi-objcopy --change-addresses 0x08000000 -I binary -O ihex mecrisp-stellaris-stm32l476.bin mecrisp-stellaris-stm32l476.hex
+cd ..
+
+cd stm32l476-ra
+arm-none-eabi-objcopy --change-addresses 0x08000000 -I binary -O ihex mecrisp-stellaris-stm32l476.bin mecrisp-stellaris-stm32l476.hex
 cd ..
 
 # Special target for running on ARM Linux and Android:
