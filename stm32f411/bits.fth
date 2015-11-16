@@ -1,4 +1,4 @@
-\ bitfield utility functions 
+\ ********** bitfield utility functions ******
 : cnt0   ( m -- b )                           \ count trailing zeros with hw support
    dup negate and 1-
    clz negate #32 + 1-foldable ;
@@ -14,12 +14,12 @@
 : shift-mask ( v m -- sv m )
   tuck cnt0 lshift over and swap 2-foldable ;
 
-: <<m ( v m -- sv /m )
-  tuck cnt0 lshift over and swap not 2-foldable ;
-: m! ( v /m a -- )
-   >R r@ @ and or r> ! ;
-0 variable v
-: t $5 $70 <<m v m! ;
+\ : <<m ( v m -- sv /m )
+\   tuck cnt0 lshift over and swap not 2-foldable ;
+\ : m! ( v /m a -- )
+\    >R r@ @ and or r> ! ;
+\ 0 variable v
+\ : t $5 $70 <<m v m! ;
 
-: LDMIA ( regs ptr -- instr )                 \ compile ldmia instruction
-  $8 lshift or $C800 or h, immediate ;
+\ : LDMIA ( regs ptr -- instr )                 \ compile ldmia instruction
+\   $8 lshift or $C800 or h, immediate ;

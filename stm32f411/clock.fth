@@ -1,13 +1,12 @@
 \ clock.fth
-\ require bits.fth
+\ include bits.fth
 \ "E:\stm\DM00105918 NUCLEO stm32f411re datasheet.pdf"
 \ "E:\stm\DM00105823 Nucleo stm32f411re user manual.pdf"
 \ "E:\stm\DM00046982 PM0214 STM32F3 and STM32F4 Series Cortex-M4 programming manual.pdf"
 \ datasheet stm32f411 "E:\stm\DM00115249 STM32F411xC STM32F411xE.pdf"
 \ reference manual stm32f411 "E:\stm\DM00119316  RM0383 STM32F411xC_E advanced ARM-based 32-bit MCUs .pdf"
 
-\ i-nclude bits.fth
-
+\ ********** Global Constants ****************
 #8000000  constant HSE-CLK-HZ                 \ HSE clock - 8 MHz from stlink debugger
 #16000000 constant HSI-CLK-HZ                 \ HSI clock - 16 MHz from internal HSI oscillator
 
@@ -61,13 +60,16 @@ $8             constant USART_BRR
 $FFFF          constant USART_BRR_DIV
 
 \ **** variables **********************
-0  variable system-clk-hz
+HSI-CLK-HZ  variable system-clk-hz            \ we start with HSI clock
 
 : hse-ready?   ( -- f )  HSERDY RCC_CR bit@ ;
-: hse-on       ( -- )    HSEBYP RCC_CR bis! HSEON RCC_CR bis! begin hse-ready? until ;
+: hse-on       ( -- )                         \ turn on hse in bypass mode
+   HSEBYP RCC_CR bis! HSEON RCC_CR bis!
+   begin hse-ready? until ;
 : SYS-CLK-HSI  ( -- )    0 SW RCC_CFGR bits! ;
 : SYS-CLK-HSE  ( -- )    1 SW RCC_CFGR bits! ;
 : SYS-CLK-PLL  ( -- )    2 SW RCC_CFGR bits! ;
+: SYS-CLK-SRC  ( -- n )  SWS RCC_CFGR bits@ ;
 : PLL-OFF      ( -- )    PLLON RCC_CR bic! ;
 : PLL-ON       ( -- )    PLLON RCC_CR bis! ;
 : pll-ready?   ( -- f )  PLLRDY RCC_CR bit@ ;
@@ -100,13 +102,14 @@ $FFFF          constant USART_BRR_DIV
    #50000000 #115200 2/ + #115200 / USART2_BRR_DIV! ;
 : USART2-BAUD-FIX-48MHz ( -- )
    #48000000 #115200 2/ + #115200 / USART2_BRR_DIV! ;
+: MEGA  ( n -- n )  #1000000 * ;
 : SYS-CLK-HSE-100-MHZ ( -- )                  \ set system clock to 100 MHz HSE pll source
    HSE-ON SYS-CLK-HSI PLL-OFF
    PLL-100-HSE PLL-ON FLASH-WS-100MHZ 
    APB1/2 APB2/1 AHB/1 USART2-BAUD-FIX-50MHz
-   PLL-ON-WAIT SYS-CLK-PLL ;
+   PLL-ON-WAIT SYS-CLK-PLL 100 MEGA system-clk-hz ! ;
 : SYS-CLK-HSE-96-MHZ ( -- )                   \ set system clock to 96 MHz HSE pll source
    HSE-ON SYS-CLK-HSI PLL-OFF
    PLL-100-HSE PLL-ON FLASH-WS-100MHZ 
    APB1/2 APB2/1 AHB/1 USART2-BAUD-FIX-48MHz
-   PLL-ON-WAIT SYS-CLK-PLL ;
+   PLL-ON-WAIT SYS-CLK-PLL 96 MEGA system-clk-hz ! ;
