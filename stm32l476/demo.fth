@@ -11,10 +11,15 @@
 \ PA3 - up
 \ PA5 - down
 
-\ register definitions
+: esc?  ( -- f )                              \ escape key on terminal pressed ?
+   key? if key #27 = else 0 then ;
+
+
+\ ********** register definitions ************
 $40021000        constant RCC_BASE
 $4C RCC_BASE or  constant RCC_AHB2ENR
 
+\ ********** GPIO registers ******************
 $48000000        constant GPIOA
 : gpio-port  ( n -- a )                       \ calc gpio port adress from number A:0 ... h:7
    #10 lshift gpioa or 1-foldable ;
@@ -27,15 +32,13 @@ GPIOA  $C or     constant GPIOA_PUPD
 $18 GPIOB or     constant GPIOB_BSRR
 $18 GPIOE or     constant GPIOE_BSRR
 
-\ joystick directions and buttons
+\ ***** joystick directions and buttons ******
 1                constant j-center
 1 1 lshift       constant j-left
 1 2 lshift       constant j-right
 1 3 lshift       constant j-up
 1 5 lshift       constant j-down
 
-: esc? ( -- f )                               \ escape key on terminal pressed ?
-  key? if key #27 = else 0 then ;
 : joystick-init  ( -- )                       \ initialize joystick
    1 RCC_AHB2ENR bis!                         \ enable clock on gpio port A
    %110011111111 GPIOA_MODER bic!             \ input mode
@@ -45,20 +48,7 @@ $18 GPIOE or     constant GPIOE_BSRR
     GPIOA_IDR @ %101111 and ;
 0 variable joy-state                          \ store last joystick state
 
-\ joystick demo
-: joystick-demo ( -- )                        \ press Escape to exit demo
-   joystick-init
-   begin
-     joy-state @
-     joystick? dup joy-state !
-     tuck xor and
-     dup j-center and if ." Center " cr then
-     dup j-left   and if ." Left   " cr then
-     dup j-right  and if ." Right  " cr then
-     dup j-up     and if ." Up     " cr then
-     dup j-down   and if ." Down   " cr then
-     drop
-    esc? until ;
+\ LED demo program
 : led-init  ( -- )                            \ initialize the leds
    1 1 lshift RCC_AHB2ENR bis!                \ enable clock on gpio port B
    1 4 lshift RCC_AHB2ENR bis!                \ enable clock on gpio port E
@@ -88,3 +78,24 @@ $18 GPIOE or     constant GPIOE_BSRR
      led-red-off
      long-wait
   esc? until ;
+
+: joystick-actions ( -- f ) \ center ?
+   joy-state @
+   joystick? dup joy-state !
+   tuck xor and
+   dup j-center and if ." Center " led-green-off led-red-off cr then
+   dup j-left   and if ." Left   " led-green-off cr then
+   dup j-right  and if ." Right  " led-green-on cr then
+   dup j-up     and if ." Up     " led-red-off cr then
+   dup j-down   and if ." Down   " led-red-on cr then
+   j-center and if 1 else 0 then ;
+
+  
+\ joystick demo
+: joystick-demo ( -- )                        \ press Escape to exit demo
+   led-init
+   joystick-init
+   begin
+     joystick-actions
+   until ;
+: init joystick-demo ;

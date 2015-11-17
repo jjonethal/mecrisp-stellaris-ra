@@ -22,11 +22,12 @@ SET P=C:\gccarm\4.9-2015q3\bin
 if exist %P%\%GDB% set GNU_ARM_BIN=%P%
 
 set OPEN_OCD_CMD=C:\app\openocd-0.10.0-dev-00040-gd52070c\bin-x64\%OPEN_OCD_EXE%
+set OPEN_OCD_CMD=C:\app\openocd\bin-x64\%OPEN_OCD_EXE%
 
 set PATH=%GNU_ARM_BIN%;%PATH%
 
 :: start ocd in separate window
-start /MIN %OPEN_OCD_CMD% -f board/stm32L4discovery.cfg
+start /MIN %OPEN_OCD_CMD% -f board/stm32l476g_disco.cfg
 :: launch and wait for gdb complete
 :: arm-none-eabi-gdb %DBG_ELF% -x .gdbinit
 arm-none-eabi-gdb %DBG_ELF%

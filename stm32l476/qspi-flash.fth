@@ -1,0 +1,68 @@
+\ qspi-flash.fth
+\ QSPI_CLK - PE10
+\ QSPI_CS  - PE11
+\ QSPI_D0  - PE12 
+\ QSPI_D1  - PE13
+\ QSPI_D2  - PE14
+\ QSPI_D3  - PE15
+
+\ N25Q128A commands
+
+$66 constant Q_CMD_RESET_ENABLE
+$99 constant Q_CMD_RESET_MEMORY
+$9E constant Q_CMD_READ_ID
+$AF constant Q_CMD_MULTIPLE_I/O_READ_ID
+$5A constant Q_CMD_READ_SERIAL_FLASH_DISCOVERY_PARAM
+$03 constant Q_CMD_READ
+$0B constant Q_CMD_FAST_READ
+$3B constant Q_CMD_DUAL_OUTPUT_FAST_READ
+$0B constant Q_CMD_DUAL_INPUT/OUTPUT_FAST_READ
+$6B constant Q_CMD_QUAD_OUTPUT_FAST_READ
+$0B constant Q_CMD_QUAD_INPUT/OUTPUT_FAST_READ
+$06 constant Q_CMD_WRITE_ENABLE
+$04 constant Q_CMD_WRITE_DISABLE
+$05 constant Q_CMD_READ_STATUS_REGISTER
+$01 constant Q_CMD_WRITE_STATUS_REGISTER
+$E8 constant Q_CMD_READ_LOCK_REGISTER
+$E5 constant Q_CMD_WRITE_LOCK_REGISTER
+$70 constant Q_CMD_READ_FLAG_STATUS_REGISTER
+$50 constant Q_CMD_CLEAR_FLAG_STATUS_REGISTER
+$B5 constant Q_CMD_READ_NONVOLATILE_CONFIGURATION_REGISTER
+$B1 constant Q_CMD_WRITE_NONVOLATILE_CONFIGURATION_REGISTER
+$85 constant Q_CMD_READ_VOLATILE_CONFIGURATION_REGISTER
+$81 constant Q_CMD_WRITE_VOLATILE_CONFIGURATION_REGISTER
+$65 constant Q_CMD_READ_ENHANCED_VOLATILE_CONFIGURATION_REGISTER
+$61 constant Q_CMD_WRITE_ENHANCED_VOLATILE_CONFIGURATION_REGISTER
+$02 constant Q_CMD_PAGE_PROGRAM
+$A2 constant Q_CMD_DUAL_INPUT_FAST_PROGRAM
+$A2 constant Q_CMD_EXTENDED_DUAL_INPUT_FAST_PROGRAM
+$32 constant Q_CMD_QUAD_INPUT_FAST_PROGRAM
+$12 constant Q_CMD_EXTENDED_QUAD_INPUT_FAST_PROGRAM
+$20 constant Q_CMD_SUBSECTOR_ERASE
+$D8 constant Q_CMD_SECTOR_ERASE
+$C7 constant Q_CMD_BULK_ERASE
+$7A constant Q_CMD_PROGRAM/ERASE_RESUME
+$75 constant Q_CMD_PROGRAM/ERASE_SUSPEND
+$4B constant Q_CMD_READ_OTP_ARRAY
+$42 constant Q_CMD_PROGRAM_OTP_ARRAY
+
+
+
+
+
+
+
+$48001000 constant GPIOE
+: gpioe-clock-ena  (  -- )                    \ enable gpioe clock
+   1 4 lshift RCC_AHB2ENR bis! ;
+: qspi-clock-ena  ( -- )                      \ enable qspi clock
+   1 8 lshift RCC_AHB3ENR bis! ;
+: gpioe-qspi  ( -- )
+   GPIOE_MODER @ $FFF00000 not and            \ AF mode PE15:10
+   $AAA00000 or GPIOE_MODER !
+   GPIOE_AFRH @ $FF and                       \ AR10 mode PE15:10
+   $AAAAAA00 or GPIOE_AFRH ! ;
+: qspi-init
+   gpioe-clock-ena
+   qspi-clock-ena
+   gpioe-qspi ;

@@ -1,0 +1,15 @@
+\ prj.txt
+eraseflash
+
+compiletoflash
+include cornerstone.fth
+include ..\common\disassembler-m3.txt
+include ..\common\dump.txt
+cornerstone debugutils
+
+: n. ( n -- )  \ output decimal without space
+   base @ >R decimal 0 <# #s #> type R> base ! ; 
+
+compiletoram
+
+include self.fth
