@@ -24,6 +24,8 @@
 
 @ Write and Erase Flash in STM32F411xE.
 @ Porting: Rewrite this ! You need hflash! and - as far as possible - cflash!
+@ check eraseflash for kernel size
+@ check eraseflashsector for allocated kernel sectors
 
 .equ FLASH_Base, 0x40023C00
 
@@ -179,7 +181,7 @@ eraseflashsector:  @ Löscht einen Flash-Sektor
 @ -----------------------------------------------------------------------------
   push {lr}
 
-  cmp tos, #1   @ Nicht den Kern in Sektor 0 löschen
+  cmp tos, #2   @ Nicht den Kern in Sektoren 0,1 löschen
   blo 2f
   cmp tos, #8   @ Es gibt nur 8 Sektoren
   bhs 2f
@@ -245,7 +247,7 @@ eraseflashsector:  @ Löscht einen Flash-Sektor
 
 @ -----------------------------------------------------------------------------
 @ 16 kb sectors
-@  loeschpruefung  0x08004000  0x08007FFF  1
+@  loeschpruefung  0x08004000  0x08007FFF  1 - used by RA kernel
   loeschpruefung  0x08008000  0x0800BFFF  2
   loeschpruefung  0x0800C000  0x0800FFFF  3
 
