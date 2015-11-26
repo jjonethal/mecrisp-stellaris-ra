@@ -196,9 +196,9 @@ constant qspi-single-line-read
 : FMODE ( v fm -- v ) #26 lshift or 2-foldable inline ; \ 0:ind write 1:ind read 2:poll 3:memmap
 : DMODE ( v dm -- v ) #24 lshift or 2-foldable inline ; \ 0:no 1:1Line 2:2line 3:4line
 : DUMMY ( v du -- v ) #18 lshift or 2-foldable inline ; \ 0-31 dummy cycles
-: ABSIZE ( v abs -- v ) 4 / 1 - #16 lshift or 2-foldable ; \ 8,24,16,32
+: ABSIZE ( v abs -- v ) 8 / 1 - #16 lshift or 2-foldable ; \ 8,16,24,32
 : ABMODE ( v abm -- v ) #14 lshift or 2-foldable inline ; \ 0:no 1:1Line 2:2line 3:4line
-: ADSIZE ( v ads -- v ) 4 / 1 - #12 lshift or 2-foldable ; \ 8,16,24,32
+: ADSIZE ( v ads -- v ) 8 / 1 - #12 lshift or 2-foldable ; \ 8,16,24,32
 : ADMODE ( v adm -- v ) #10 lshift or 2-foldable inline ; \ 0:no 1:1Line 2:2line 3:4line
 : IMODE  ( v im -- v ) #8 lshift or 2-foldable inline ; \ 0:no 1:1Line 2:2line 3:4line
 
@@ -214,12 +214,16 @@ constant qspi-single-line-read
    qspi-cmd-mode @ imode 0 fmode qspi-data-mode @ dmode ;
 : qspi-send-cmd  ( cmd -- n ) \ compose command depending on mode
    qspi-cmd-mode @ imode 0 fmode ;
+: qspi-send-cmd-adr ( cmd -- n ) \ compose command send address and cmd
+   qspi-cmd-mode @ imode 0 fmode #24 adsize qspi-adr-mode @ admode ;
+: qspi-send-cmd-adr-data ( cmd -- n ) \ compose command send address and cmd
+   qspi-cmd-mode @ imode 0 fmode #24 adsize qspi-adr-mode @ admode
+   qspi-data-mode @ dmode ;
 
-
-: q-fifo. ( -- ) \ dump current fifo
+: q-fifo. ( -- )                              \ dump qspi fifo
   begin qspi-fifo-level# 0<> if q-c@ . then
   qspi-busy? not until ;
-: qc-c@ ( -- c ) \ fetch next byte from fifo
+: qc-c@ ( -- c )                              \ fetch next byte from fifo
   qspi-busy?
   if
     begin qspi-fifo-level#
@@ -227,45 +231,57 @@ constant qspi-single-line-read
     q-c@
   else -1
   then ;
-: qc-c! ( c -- ) \ write byte when fifo has place free
-   qspi-busy? if begin qspi-fifo-level# 15 < until QUADSPI_DR c!
+: qc-c! ( c -- )                              \ write byte when fifo has place free
+   qspi-busy? if
+      begin qspi-fifo-level# 15 < 
+      until QUADSPI_DR c!
    then ;
-: q-reg@ ( len cmd -- c1 c2 ... cn ) \ read len bytes from register
+: q-reg@ ( len cmd -- c1 c2 ... cn )          \ read len bytes from register
    over q-datalength! qspi-read-reg  or QUADSPI_CCR !
    0 do qc-c@ loop ;
-: q-reg. ( len cmd -- ) \ dump len bytes from register
+: q-reg. ( len cmd -- )                       \ dump len bytes from register
    over q-datalength! qspi-read-reg  or QUADSPI_CCR !
    0 do qc-c@ . loop ;
-: q-reg! ( cn ... c2 c1 len cmd -- ) \ send len bytes to register
+: q-reg! ( cn ... c2 c1 len cmd -- )          \ send len bytes to register
    over q-datalength! qspi-write-reg or QUADSPI_CCR !
    0 do qc-c! loop ;
-: q-cmd! ( cmd -- ) \ send cmd
+: q-cmd! ( cmd -- )                           \ send cmd
    qspi-send-cmd or QUADSPI_CCR ! ;
-: q-wr-ena ( -- ) \ send write enable command
+: q-wr-ena ( -- )                             \ send write enable command
    Q_CMD_WRITE_ENABLE q-cmd! ;
-: q-wr-dis ( -- ) \ send write enable command
+: q-wr-dis ( -- )                             \ send write enable command
    Q_CMD_WRITE_DISABLE q-cmd! ;
-: q-id. ( -- ) \ dump id of qspi chip
+: q-id. ( -- )                                \ dump id of qspi chip
    hex qspi-init q-ena #3 Q_CMD_READ_ID q-reg. ;
-: q-vcr@ ( -- vcfg ) \ read volatile configuraton register
+: q-vcr@ ( -- vcfg )                          \ read volatile configuraton register
    1 Q_CMD_READ_VCR q-reg@ ;
-: q-vcr! ( vcfg -- ) \ write volatile configuration register
+: q-vcr! ( vcfg -- )                          \ write volatile configuration register
    1 Q_CMD_WRITE_VCR q-reg! ;
-: q-evcr@ ( -- evcfg ) \ read extended volatile configuraton register
+: q-evcr@ ( -- evcfg )                        \ read extended volatile configuraton register
    1  Q_CMD_READ_EVCR q-reg@ ;
-: q-evcr! ( evcfg -- ) \ write extended volatile configuration register
+: q-evcr! ( evcfg -- )                        \ write extended volatile configuration register
    1 Q_CMD_WRITE_EVCR q-reg! ;
-
+: q-sr@ ( -- c )                              \ get status register     
+  1 Q_CMD_READ_STATUS_REGISTER q-reg@ ;
+: q-bsy? ( -- f )                             \ qspi chip busy ?
+   q-sr@ 1 and 0<> ;
+: q-wait-complete ( -- )                      \ wait until qspi flash chip is ready
+   begin q-bsy? not until ;
+: q-wr-adr-cmd ( a cmd -- )
+  q-wr-ena qspi-send-cmd-adr QUADSPI_CCR !
+  QUADSPI_AR ! ; \ trigger transfer after address write
+: q-erase-sub-sector ( a -- )
+  Q_CMD_SUBSECTOR_ERASE q-wr-adr-cmd  q-wait-complete ;
+: q-erase-sector ( a -- )
+  Q_CMD_SECTOR_ERASE    q-wr-adr-cmd  q-wait-complete 
+: q-program-page ( buffer len adr -- ) ; \ program one page   
+   q-wr-ena Q_CMD_PAGE_PROGRAM qspi-send-cmd-adr-data QUADSPI_CCR !
+   QUADSPI_AR ! dup q-datalength!
+   0 do dup @ qc-c! 1+ loop q-wait-complete ;
    
 0 1 FMODE 3 imode constant qspi-quad-read-reg
 0 3 IMODE         constanr qspi-quad-write-reg
 
-: qc-quad-mode-read-reg ( num cmd -- )
-   qspi-quad-read-reg or over q-datalength! QUADSPI_CCR !
-   0 do qc-c@ loop ;
-: qc-quad-mode-write-reg ( vn num cmd -- ) \ write number of byte to qspi chip register
-   qspi-quad-write-reg or over q-datalength! QUADSPI_CCR !
-   0 do qc-c! loop ;
 
 \ QSPI_CLK - PE10
 \ QSPI_CS  - PE11
