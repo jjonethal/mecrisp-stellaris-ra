@@ -391,11 +391,12 @@ $24 GPIOE + constant GPIOE_AFRH
    2drop                                      \ drop old start and length
    base !                                     \ restore original display base
    c@-hook ! ;                                \ restore c@-hook
-: q-dump ( adr len -- )
+: q-dump ( adr len -- )                       \ dump qspi memory from chip address
    ['] q-flash-c@ gdump ;   
 : q!-test #16 #1024 * #1024 * 0 do 
    i step. i dup q-flash! 4 +loop ;
-   
+: qd ( adr )
+   hex begin dup $100 q-dump $100 + key #27 = until drop ;
 \ QSPI_CLK - PE10
 \ QSPI_CS  - PE11
 \ QSPI_D0  - PE12 
