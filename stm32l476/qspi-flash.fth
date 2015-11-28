@@ -311,7 +311,7 @@ $24 GPIOE + constant GPIOE_AFRH
 
 \ dump memory to terminal
 \ 0x00000000 | XX XX .. XX | xx..x 
-: dump-line ( adr n -- )                     \ dump a number of bytes up to 16 to terminal
+: dump-line ( adr n -- )                      \ dump a number of bytes up to 16 to terminal
    #16 min                                    \ max 16 bytes per line
    cr over ( a n a )                          \ start display on new line get address for output
    hex. ( a n )                               \ output address in hex
@@ -341,6 +341,31 @@ $24 GPIOE + constant GPIOE_AFRH
     2drop                                     \ drop old start and length
    base ! ;                                   \ restore original display base
 
+\ dump memory to terminal
+\ 0x00000000 | XX XX .. XX | xx..x 
+: dump-line-generic ( adr n 'c@ -- )          \ dump a number of bytes using 'c@ up to 16 to terminal
+   >R                                         \ save fetch function
+   #16 min                                    \ max 16 bytes per line
+   cr over ( a n a )                          \ start display on new line get address for output
+   hex. ( a n )                               \ output address in hex
+   [char] | emit space                        \ output separator
+   tuck ( n a n )                             \ calc loop limits endadress a+n startaddress a
+   tuck ( n n a n )                           \ save n for later shuffeling
+   over ( n n a n a )
+   + swap ( n n a+n a )                       \ calculate dump end address and swap with start address
+   do ( n n )                                 \ loop index is address
+     i r@ execute ( n n c )                   \ get address byte using fetch function c@'
+     dup ( n n c c )
+     u.2 space ( n n c )                      \ output byte value and space
+     swap ( n c n )                           \ and put byte on stack for later text display 
+   loop 
+   dup ( n c...c n n )                        \ fill remaining space in hex line when n<16
+   #16 swap ( n c...c n 16 n )                \ prepare loop counter
+   ?do 3 spaces loop ( n c..c n )             \ put 3 spaces for 2 hex digits + limiter
+   [char] | emit                              \ put a bar
+   0 do >R loop ( n -- ) ( R: -- cc )         \ shuffle char list from stack to return stack
+   0 do r> c. loop ;                          \ reverse output char list
+   
 : q!-test #16 #1024 * #1024 * 0 do 
    i step. i dup q-flash! 4 +loop ;
    
