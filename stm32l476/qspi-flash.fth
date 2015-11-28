@@ -308,31 +308,10 @@ $24 GPIOE + constant GPIOE_AFRH
 : c[]<->c. ( c1 c2 .. cn n -- )               \ reverse output character list
    dup 0 ?do swap >R loop                     \ suffle to return stack
    0 ?do R> c. loop ;                         \ output in reverse order
-: dump-line ( adr n -- )                      \ dump an array of up tp 16 byte to terminal
-   #16 min                                    \ max 16 bytes per line
-   cr over ( a n a )                          \ start display on new line get address for output
-   hex. ( a n )                               \ output address in hex
-   [char] | emit space                        \ output separator
-   2dup ( a n a n )                           \ calc loop limits a+n a
-   tuck ( a n n a n )                         \ save n for later shuffeling
-   over ( a n n a n a )
-   + swap ( a n n a+n a )                     \ calculate dump end address and swap with start address
-   do ( a n n )
-     i c@ ( a n n c )                         \ get address byte
-     dup ( a n n c c )
-     u.2 ( a n n c )                          \ output address byte
-     space swap ( a n c n )                   \ and put byte on stack for later text display 
-   loop 
-   dup ( a n c...c n n )                      \ fill remaining space in hex line when n<16
-   #16 swap ( a n c...c n 16 n )              \ prepare loop counter
-   ?do 3 spaces loop ( a n c..c n )           \ put 3 spaces for 22 hex digits + limiter
-   [char] | emit                              \ put a bar
-   0 do >R loop ( a n -- ) ( R: -- cc )       \ shuffle char list from stack to return stack
-   0 do r> c. loop drop ;                     \ reverse output char list
 
 \ dump memory to terminal
 \ 0x00000000 | XX XX .. XX | xx..x 
-: dump-line2 ( adr n -- )                     \ dump a number of bytes up to 16 to terminal
+: dump-line ( adr n -- )                     \ dump a number of bytes up to 16 to terminal
    #16 min                                    \ max 16 bytes per line
    cr over ( a n a )                          \ start display on new line get address for output
    hex. ( a n )                               \ output address in hex
@@ -354,10 +333,14 @@ $24 GPIOE + constant GPIOE_AFRH
    0 do >R loop ( n -- ) ( R: -- cc )         \ shuffle char list from stack to return stack
    0 do r> c. loop ;                          \ reverse output char list
 
-: qdump ( adr len -- )
-   2dup over + swap ?do i over dump-line #16 - #16 +loop ;   
-: qdump2 ( adr len -- )
-   2dup over + swap ?do i over dump-line #16 - #16 +loop ;   
+: qdump ( adr len -- )                        \ dump area
+   base @ -rot hex                            \ switch to hex display
+   2dup over + swap                           \ calculate loop end-adr start-adr
+   ?do i over dump-line                       \ address length  
+      #16 - #16 +loop                         \ reduce length by 16 increase index address by 16
+    2drop                                     \ drop old start and length
+   base ! ;                                   \ restore original display base
+
 : q!-test #16 #1024 * #1024 * 0 do 
    i step. i dup q-flash! 4 +loop ;
    
@@ -467,7 +450,7 @@ GPIOE #15 + constant qd3
    $80 bitsel !
    txb @ bitsel @ and qd0! ." p0 " q.
    qcs-0 q. ;
-: nb
+: nb ( next bit )
    qclk-1  q.  \ msb-/
    qclk-0  q.  \ msb-\
    bitsel @ shr bitsel ! 
