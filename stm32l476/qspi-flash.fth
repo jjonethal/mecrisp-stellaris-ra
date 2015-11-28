@@ -168,7 +168,8 @@ $24 GPIOE + constant GPIOE_AFRH
    #23 qspi-fsize!
    0 qspi-ckmode!
    #7 qspi_csht!
-   #255 qspi-prescaler! ;
+   #255 qspi-prescaler!
+   q-ena ;
 : qspi-fifo-level# ( -- n )
   QUADSPI_SR @ 8 rshift $1f and ;
 : q-c@ ( -- c )
@@ -187,10 +188,6 @@ $24 GPIOE + constant GPIOE_AFRH
 : q-datalength! ( n -- )
    1- QUADSPI_DLR ! ;
 
-1 #26 lshift     \ fmode indirect read
-1 #24 lshift or  \ dmode single line
-1  #8 lshift or  \ imode single line
-constant qspi-single-line-read
 
 : SIOO ( v -- v ) #1 #28 lshift or 1-foldable inline ; \ 0:instr. on every transaction 1:instr. on 1st transaction 
 : FMODE ( v fm -- v ) #26 lshift or 2-foldable inline ; \ 0:ind write 1:ind read 2:poll 3:memmap
@@ -203,21 +200,24 @@ constant qspi-single-line-read
 : IMODE  ( v im -- v ) #8 lshift or 2-foldable inline ; \ 0:no 1:1Line 2:2line 3:4line
 
 
-1 variable qspi-ab-mode   \ alternate byte mode 1:1-wire 2:2-wire 3:4wire
-1 variable qspi-adr-mode  \ address mode 1:1-wire 2:2-wire 3:4wire
-1 variable qspi-data-mode \ data mode 1:1-wire 2:2-wire 3:4wire
-1 variable qspi-cmd-mode  \ instruction mode 1:1-wire 2:2-wire 3:4wire
+1 variable qspi-ab-mode                       \ alternate byte mode 1:1-wire 2:2-wire 3:4wire
+1 variable qspi-adr-mode                      \ address mode 1:1-wire 2:2-wire 3:4wire
+1 variable qspi-data-mode                     \ data mode 1:1-wire 2:2-wire 3:4wire
+1 variable qspi-cmd-mode                      \ instruction mode 1:1-wire 2:2-wire 3:4wire
 
-: qspi-read-reg ( cmd -- n )  \ compose read register command param depending on mode
+: qspi-read-reg ( cmd -- n )                  \ compose read register command param depending on mode
    qspi-cmd-mode @ imode 1 fmode qspi-data-mode @ dmode ;
-: qspi-write-reg ( cmd -- n ) \ compose write register command param depending on mode
+: qspi-write-reg ( cmd -- n )                 \ compose write register command param depending on mode
    qspi-cmd-mode @ imode 0 fmode qspi-data-mode @ dmode ;
-: qspi-send-cmd  ( cmd -- n ) \ compose command depending on mode
+: qspi-send-cmd  ( cmd -- n )                 \ compose command depending on mode
    qspi-cmd-mode @ imode 0 fmode ;
-: qspi-send-cmd-adr ( cmd -- n ) \ compose command send address and cmd
+: qspi-send-cmd-adr ( cmd -- n )              \ compose command send address and cmd
    qspi-cmd-mode @ imode 0 fmode #24 adsize qspi-adr-mode @ admode ;
-: qspi-send-cmd-adr-data ( cmd -- n ) \ compose command send address and cmd
+: qspi-send-cmd-adr-data ( cmd -- n )         \ compose command send address and cmd
    qspi-cmd-mode @ imode 0 fmode #24 adsize qspi-adr-mode @ admode
+   qspi-data-mode @ dmode ;
+: qspi-receive-cmd-adr-data ( cmd -- n )      \ compose command send address and cmd
+   qspi-cmd-mode @ imode 1 fmode #24 adsize qspi-adr-mode @ admode
    qspi-data-mode @ dmode ;
 
 : q-fifo. ( -- )                              \ dump qspi fifo
@@ -227,7 +227,7 @@ constant qspi-single-line-read
   qspi-busy?
   if
     begin qspi-fifo-level#
-    0<> until
+    0<> qspi-busy? not or until
     q-c@
   else -1
   then ;
@@ -237,16 +237,16 @@ constant qspi-single-line-read
       until QUADSPI_DR c!
    then ;
 : q-reg@ ( len cmd -- c1 c2 ... cn )          \ read len bytes from register
-   over q-datalength! qspi-read-reg  or QUADSPI_CCR !
+   over q-datalength! qspi-read-reg  QUADSPI_CCR !
    0 do qc-c@ loop ;
 : q-reg. ( len cmd -- )                       \ dump len bytes from register
-   over q-datalength! qspi-read-reg  or QUADSPI_CCR !
+   over q-datalength! qspi-read-reg  QUADSPI_CCR !
    0 do qc-c@ . loop ;
 : q-reg! ( cn ... c2 c1 len cmd -- )          \ send len bytes to register
-   over q-datalength! qspi-write-reg or QUADSPI_CCR !
+   over q-datalength! qspi-write-reg QUADSPI_CCR !
    0 do qc-c! loop ;
 : q-cmd! ( cmd -- )                           \ send cmd
-   qspi-send-cmd or QUADSPI_CCR ! ;
+   qspi-send-cmd QUADSPI_CCR ! ;
 : q-wr-ena ( -- )                             \ send write enable command
    Q_CMD_WRITE_ENABLE q-cmd! ;
 : q-wr-dis ( -- )                             \ send write enable command
@@ -267,22 +267,100 @@ constant qspi-single-line-read
    q-sr@ 1 and 0<> ;
 : q-wait-complete ( -- )                      \ wait until qspi flash chip is ready
    begin q-bsy? not until ;
-: q-wr-adr-cmd ( a cmd -- )
+: q-wr-adr-cmd ( a cmd -- )                   \ initiate send address command 
   q-wr-ena qspi-send-cmd-adr QUADSPI_CCR !
   QUADSPI_AR ! ; \ trigger transfer after address write
 : q-erase-sub-sector ( a -- )
   Q_CMD_SUBSECTOR_ERASE q-wr-adr-cmd  q-wait-complete ;
 : q-erase-sector ( a -- )
-  Q_CMD_SECTOR_ERASE    q-wr-adr-cmd  q-wait-complete 
-: q-program-page ( buffer len adr -- ) ; \ program one page   
+  Q_CMD_SECTOR_ERASE    q-wr-adr-cmd  q-wait-complete ;
+: q-program-page ( buffer len adr -- )        \ program one page   
    q-wr-ena Q_CMD_PAGE_PROGRAM qspi-send-cmd-adr-data QUADSPI_CCR !
    QUADSPI_AR ! dup q-datalength!
    0 do dup @ qc-c! 1+ loop q-wait-complete ;
+: q-flash! ( w adr -- )                       \ write a word to address
+   q-wr-ena Q_CMD_PAGE_PROGRAM
+   qspi-send-cmd-adr-data QUADSPI_CCR !
+   QUADSPI_AR ! 4 q-datalength!  QUADSPI_DR !
+   q-wait-complete ;
+: q-dummy-cycles ( -- n )                     \ get current number of dummy cycles
+   q-vcr@ #4 rshift $F and ;
+: q-flash@ ( adr -- w ) 
+   Q_CMD_FAST_READ qspi-receive-cmd-adr-data
+   q-dummy-cycles DUMMY .s QUADSPI_CCR !
+   #4 q-datalength! QUADSPI_AR ! 
+   qc-c@ qc-c@ #8 lshift or qc-c@ #16 lshift or qc-c@ #24 lshift or ;
+: q-flash-c@ ( adr -- w ) 
+   Q_CMD_FAST_READ qspi-receive-cmd-adr-data
+   q-dummy-cycles DUMMY .s QUADSPI_CCR !
+   #1 q-datalength! QUADSPI_AR ! 
+   qc-c@ ;
+
+: u.4 ( u -- ) 0 <# # # # # #> type ;
+: u.2 ( u -- ) 0 <# # # #> type ;
+: < ( a b -- f ) - 0< 2-foldable inline ;
+: > ( a b -- f ) swap - 0< 2-foldable inline ;
+: >= ( a b -- f ) - 0< not 2-foldable inline ;
+: step. ( n -- )
+   dup $FFFF and 0 = if . cr else drop then ;
+: c. ( n -- )                                 \ emit printable character or "."
+   dup #32 >= and dup #127 < and dup 0= [char] . and or emit ;
+: c[]<->c. ( c1 c2 .. cn n -- )               \ reverse output character list
+   dup 0 ?do swap >R loop                     \ suffle to return stack
+   0 ?do R> c. loop ;                         \ output in reverse order
+: dump-line ( adr n -- )                      \ dump an array of up tp 16 byte to terminal
+   #16 min                                    \ max 16 bytes per line
+   cr over ( a n a )                          \ start display on new line get address for output
+   hex. ( a n )                               \ output address in hex
+   [char] | emit space                        \ output separator
+   2dup ( a n a n )                           \ calc loop limits a+n a
+   tuck ( a n n a n )                         \ save n for later shuffeling
+   over ( a n n a n a )
+   + swap ( a n n a+n a )                     \ calculate dump end address and swap with start address
+   do ( a n n )
+     i c@ ( a n n c )                         \ get address byte
+     dup ( a n n c c )
+     u.2 ( a n n c )                          \ output address byte
+     space swap ( a n c n )                   \ and put byte on stack for later text display 
+   loop 
+   dup ( a n c...c n n )                      \ fill remaining space in hex line when n<16
+   #16 swap ( a n c...c n 16 n )              \ prepare loop counter
+   ?do 3 spaces loop ( a n c..c n )           \ put 3 spaces for 22 hex digits + limiter
+   [char] | emit                              \ put a bar
+   0 do >R loop ( a n -- ) ( R: -- cc )       \ shuffle char list from stack to return stack
+   0 do r> c. loop drop ;                     \ reverse output char list
+
+\ dump memory to terminal
+\ 0x00000000 | XX XX .. XX | xx..x 
+: dump-line2 ( adr n -- )                     \ dump a number of bytes up to 16 to terminal
+   #16 min                                    \ max 16 bytes per line
+   cr over ( a n a )                          \ start display on new line get address for output
+   hex. ( a n )                               \ output address in hex
+   [char] | emit space                        \ output separator
+   tuck ( n a n )                             \ calc loop limits endadress a+n startaddress a
+   tuck ( n n a n )                           \ save n for later shuffeling
+   over ( n n a n a )
+   + swap ( n n a+n a )                       \ calculate dump end address and swap with start address
+   do ( n n )                                 \ loop index is address
+     i c@ ( n n c )                           \ get address byte
+     dup ( n n c c )
+     u.2 space ( n n c )                      \ output byte value and space
+     swap ( n c n )                           \ and put byte on stack for later text display 
+   loop 
+   dup ( n c...c n n )                        \ fill remaining space in hex line when n<16
+   #16 swap ( n c...c n 16 n )                \ prepare loop counter
+   ?do 3 spaces loop ( n c..c n )             \ put 3 spaces for 2 hex digits + limiter
+   [char] | emit                              \ put a bar
+   0 do >R loop ( n -- ) ( R: -- cc )         \ shuffle char list from stack to return stack
+   0 do r> c. loop ;                          \ reverse output char list
+
+: qdump ( adr len -- )
+   2dup over + swap ?do i over dump-line #16 - #16 +loop ;   
+: qdump2 ( adr len -- )
+   2dup over + swap ?do i over dump-line #16 - #16 +loop ;   
+: q!-test #16 #1024 * #1024 * 0 do 
+   i step. i dup q-flash! 4 +loop ;
    
-0 1 FMODE 3 imode constant qspi-quad-read-reg
-0 3 IMODE         constanr qspi-quad-write-reg
-
-
 \ QSPI_CLK - PE10
 \ QSPI_CS  - PE11
 \ QSPI_D0  - PE12 
