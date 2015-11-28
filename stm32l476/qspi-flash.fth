@@ -285,6 +285,8 @@ $24 GPIOE + constant GPIOE_AFRH
    q-wait-complete ;
 : q-dummy-cycles ( -- n )                     \ get current number of dummy cycles
    q-vcr@ #4 rshift $F and ;
+: q-wait-idle ( -- )
+    begin qspi-busy? not until ;
 : q-flash@ ( adr -- w ) 
    Q_CMD_FAST_READ qspi-receive-cmd-adr-data
    q-dummy-cycles DUMMY .s QUADSPI_CCR !
@@ -292,10 +294,23 @@ $24 GPIOE + constant GPIOE_AFRH
    qc-c@ qc-c@ #8 lshift or qc-c@ #16 lshift or qc-c@ #24 lshift or ;
 : q-flash-c@ ( adr -- w ) 
    Q_CMD_FAST_READ qspi-receive-cmd-adr-data
-   q-dummy-cycles DUMMY .s QUADSPI_CCR !
+   q-dummy-cycles q-wait-idle DUMMY QUADSPI_CCR !
    #1 q-datalength! QUADSPI_AR ! 
    qc-c@ ;
 
+: qp 
+   hex 
+   Q_CMD_FAST_READ qspi-receive-cmd-adr-data
+   q-dummy-cycles begin qspi-busy? not until DUMMY QUADSPI_CCR ! QUADSPI_CCR @ hex.
+   #1 q-datalength! 0 QUADSPI_AR ! 
+   qspi-busy?
+   if begin qspi-fifo-level# 0<> until QUADSPI_DR c@
+   else ." not busy " cr -1
+   then
+   ;
+
+   
+: q@ 0 q-flash-c@ . ;
 : u.4 ( u -- ) 0 <# # # # # #> type ;
 : u.2 ( u -- ) 0 <# # # #> type ;
 : < ( a b -- f ) - 0< 2-foldable inline ;
@@ -311,7 +326,7 @@ $24 GPIOE + constant GPIOE_AFRH
 
 \ dump memory to terminal
 \ 0x00000000 | XX XX .. XX | xx..x 
-: dump-line ( adr n -- )                      \ dump a number of bytes up to 16 to terminal
+: my-dump-line ( adr n -- )                      \ dump a number of bytes up to 16 to terminal
    #16 min                                    \ max 16 bytes per line
    cr over ( a n a )                          \ start display on new line get address for output
    hex. ( a n )                               \ output address in hex
@@ -333,18 +348,17 @@ $24 GPIOE + constant GPIOE_AFRH
    0 do >R loop ( n -- ) ( R: -- cc )         \ shuffle char list from stack to return stack
    0 do r> c. loop ;                          \ reverse output char list
 
-: qdump ( adr len -- )                        \ dump area
+: my-dump ( adr len -- )                      \ dump area
    base @ -rot hex                            \ switch to hex display
    2dup over + swap                           \ calculate loop end-adr start-adr
-   ?do i over dump-line                       \ address length  
+   ?do i over my-dump-line                    \ address length  
       #16 - #16 +loop                         \ reduce length by 16 increase index address by 16
     2drop                                     \ drop old start and length
    base ! ;                                   \ restore original display base
-
+' c@ variable c@-hook
 \ dump memory to terminal
 \ 0x00000000 | XX XX .. XX | xx..x 
-: dump-line-generic ( adr n 'c@ -- )          \ dump a number of bytes using 'c@ up to 16 to terminal
-   >R                                         \ save fetch function
+: gdump-line ( adr n -- )                     \ dump a number of bytes using 'c@ up to 16 to terminal
    #16 min                                    \ max 16 bytes per line
    cr over ( a n a )                          \ start display on new line get address for output
    hex. ( a n )                               \ output address in hex
@@ -354,7 +368,7 @@ $24 GPIOE + constant GPIOE_AFRH
    over ( n n a n a )
    + swap ( n n a+n a )                       \ calculate dump end address and swap with start address
    do ( n n )                                 \ loop index is address
-     i r@ execute ( n n c )                   \ get address byte using fetch function c@'
+     i c@-hook @ execute ( n n c )            \ get address byte
      dup ( n n c c )
      u.2 space ( n n c )                      \ output byte value and space
      swap ( n c n )                           \ and put byte on stack for later text display 
@@ -365,7 +379,20 @@ $24 GPIOE + constant GPIOE_AFRH
    [char] | emit                              \ put a bar
    0 do >R loop ( n -- ) ( R: -- cc )         \ shuffle char list from stack to return stack
    0 do r> c. loop ;                          \ reverse output char list
-   
+
+: gdump ( adr len 'c@ -- )                    \ dump area
+    >R                                        \ move away new c@ handler
+   c@-hook @ -rot                             \ save function handle
+   base @ -rot hex                            \ switch to hex display
+   r> c@-hook !                               \ use new c@ handler
+   2dup over + swap                           \ calculate loop end-adr start-adr
+   ?do i over gdump-line                      \ address length  
+      #16 - #16 +loop                         \ reduce length by 16 increase index address by 16
+   2drop                                      \ drop old start and length
+   base !                                     \ restore original display base
+   c@-hook ! ;                                \ restore c@-hook
+: q-dump ( adr len -- )
+   ['] q-flash-c@ gdump ;   
 : q!-test #16 #1024 * #1024 * 0 do 
    i step. i dup q-flash! 4 +loop ;
    
