@@ -395,8 +395,18 @@ $24 GPIOE + constant GPIOE_AFRH
    ['] q-flash-c@ gdump ;   
 : q!-test #16 #1024 * #1024 * 0 do 
    i step. i dup q-flash! 4 +loop ;
-: qd ( adr )
-   hex begin dup $100 q-dump $100 + key #27 = until drop ;
+: qd-key ( adr -- adr f )                     \ key handler for qd next adr & flag:false cont true stop
+   key case
+     [char] q of -1       endof               \ q-quit
+     [char] b of $100 - 0 endof               \ b back 256 bytes
+     [char] j of $100 - 0 endof               \ j (vi) back 256 bytes
+     [char] k of $100 + 0 endof               \ k next 256 bytes
+     #32      of $100 + 0 endof               \ space next 256 bytes
+     #13      of $100 + 0 endof               \ carriage return
+     -1 swap                                  \ all other keys stop
+   endcase ;
+: qd ( adr )                                  \ dump qspi mem start from adr
+   hex begin dup $100 q-dump qd-key until drop ;
 \ QSPI_CLK - PE10
 \ QSPI_CS  - PE11
 \ QSPI_D0  - PE12 
