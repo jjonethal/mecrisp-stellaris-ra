@@ -168,7 +168,7 @@ $24 GPIOE + constant GPIOE_AFRH
    #23 qspi-fsize!
    0 qspi-ckmode!
    #7 qspi_csht!
-   #255 qspi-prescaler!
+   #15 qspi-prescaler!
    q-ena ;
 : qspi-fifo-level# ( -- n )
   QUADSPI_SR @ 8 rshift $1f and ;
@@ -202,8 +202,9 @@ $24 GPIOE + constant GPIOE_AFRH
 
 1 variable qspi-ab-mode                       \ alternate byte mode 1:1-wire 2:2-wire 3:4wire
 1 variable qspi-adr-mode                      \ address mode 1:1-wire 2:2-wire 3:4wire
-1 variable qspi-data-mode                     \ data mode 1:1-wire 2:2-wire 3:4wire
 1 variable qspi-cmd-mode                      \ instruction mode 1:1-wire 2:2-wire 3:4wire
+1 variable qspi-data-mode                     \ data mode 1:1-wire 2:2-wire 3:4wire
+8 variable qspi-dummy#                        \ number of dummy cycles for fast read 8:1-wire 10:4-wire
 
 : qspi-read-reg ( cmd -- n )                  \ compose read register command param depending on mode
    qspi-cmd-mode @ imode 1 fmode qspi-data-mode @ dmode ;
@@ -232,10 +233,11 @@ $24 GPIOE + constant GPIOE_AFRH
   else -1
   then ;
 : qc-c! ( c -- )                              \ write byte when fifo has place free
-   qspi-busy? if
+\   qspi-busy? if
       begin qspi-fifo-level# 15 < 
       until QUADSPI_DR c!
-   then ;
+\   then
+   ;
 : q-reg@ ( len cmd -- c1 c2 ... cn )          \ read len bytes from register
    over q-datalength! qspi-read-reg  QUADSPI_CCR !
    0 do qc-c@ loop ;
@@ -243,7 +245,8 @@ $24 GPIOE + constant GPIOE_AFRH
    over q-datalength! qspi-read-reg  QUADSPI_CCR !
    0 do qc-c@ . loop ;
 : q-reg! ( cn ... c2 c1 len cmd -- )          \ send len bytes to register
-   over q-datalength! qspi-write-reg QUADSPI_CCR !
+   qspi-write-reg QUADSPI_CCR !
+   dup q-datalength! 
    0 do qc-c! loop ;
 : q-cmd! ( cmd -- )                           \ send cmd
    qspi-send-cmd QUADSPI_CCR ! ;
@@ -287,30 +290,38 @@ $24 GPIOE + constant GPIOE_AFRH
    q-vcr@ #4 rshift $F and ;
 : q-wait-idle ( -- )
     begin qspi-busy? not until ;
-: q-flash@ ( adr -- w ) 
+: q-flash@ ( adr -- w )
+   q-wait-idle
    Q_CMD_FAST_READ qspi-receive-cmd-adr-data
-   q-dummy-cycles DUMMY .s QUADSPI_CCR !
+   qspi-dummy# @ DUMMY QUADSPI_CCR !
    #4 q-datalength! QUADSPI_AR ! 
    qc-c@ qc-c@ #8 lshift or qc-c@ #16 lshift or qc-c@ #24 lshift or ;
-: q-flash-c@ ( adr -- w ) 
+: q-flash-c@ ( adr -- w )
+   q-wait-idle 
    Q_CMD_FAST_READ qspi-receive-cmd-adr-data
-   q-dummy-cycles q-wait-idle DUMMY QUADSPI_CCR !
+   qspi-dummy# @ DUMMY QUADSPI_CCR !
    #1 q-datalength! QUADSPI_AR ! 
    qc-c@ ;
-
-: qp 
-   hex 
-   Q_CMD_FAST_READ qspi-receive-cmd-adr-data
-   q-dummy-cycles begin qspi-busy? not until DUMMY QUADSPI_CCR ! QUADSPI_CCR @ hex.
-   #1 q-datalength! 0 QUADSPI_AR ! 
-   qspi-busy?
-   if begin qspi-fifo-level# 0<> until QUADSPI_DR c@
-   else ." not busy " cr -1
-   then
-   ;
-
+: qspi-quad-mode ( -- set quad mode )
+   q-wr-ena q-wait-idle
+   q-evcr@ q-wait-idle $7F and q-wr-ena q-wait-idle q-evcr! q-wait-idle
+   #3 qspi-ab-mode !
+   #3 qspi-adr-mode !
+   #3 qspi-cmd-mode !
+   #3 qspi-data-mode !
+   #10 qspi-dummy# ! ;
+: qspi-single-mode ( -- set quad mode )
+   q-wr-ena q-wait-idle
+   q-evcr@ q-wait-idle $80 or q-wr-ena q-wait-idle q-evcr! q-wait-idle
+   #1 qspi-ab-mode !
+   #1 qspi-adr-mode !
+   #1 qspi-cmd-mode !
+   #1 qspi-data-mode ! 
+   #8 qspi-dummy# ! ;
    
-: q@ 0 q-flash-c@ . ;
+: q-c@ ( adr -- c )                           \ shortcut for q-flash-c@
+   q-flash-c@ ;
+
 : u.4 ( u -- ) 0 <# # # # # #> type ;
 : u.2 ( u -- ) 0 <# # # #> type ;
 : < ( a b -- f ) - 0< 2-foldable inline ;
@@ -393,6 +404,8 @@ $24 GPIOE + constant GPIOE_AFRH
    c@-hook ! ;                                \ restore c@-hook
 : q-dump ( adr len -- )                       \ dump qspi memory from chip address
    ['] q-flash-c@ gdump ;   
+: q-dump ( adr len -- )                       \ dump qspi memory from chip address
+   c@-hook @ gdump ;   
 : q!-test #16 #1024 * #1024 * 0 do 
    i step. i dup q-flash! 4 +loop ;
 : qd-key ( adr -- adr f )                     \ key handler for qd next adr & flag:false cont true stop
@@ -501,8 +514,9 @@ GPIOE #15 + constant qd3
  ." d0 " qd0@ b0 .  
  ." d1 " qd1@ b0 .  
  ." d2 " qd2@ b0 .  
- ." d3 " qd3@ b0 .  cr ;
+ ." d3 " qd3@ b0 . ;
 
+: q.  ( -- ) dup drop ;
 
  
 : q-idle qcs-1 qclk-0 ;
@@ -524,12 +538,15 @@ GPIOE #15 + constant qd3
    ." rxb " rxb @ hex. cr
    qclk-0  q. ;  \ msb-\  
 
-: q. dup drop ( -- ) ;   
+\ : q. dup drop ( -- ) ;   
    
 : tx-byte ( c -- )
-   dup cr ." send " hex.
-   8 0 do dup $80 and qd0! q. shl qclk-1 q. qclk-0 q. loop ; 
+   \ dup cr ." send " hex.
+   8 0 do dup $80 and qd0! q. shl qclk-1 q. qclk-0 q. loop
+   drop ;
 : rx-byte ( -- c )
+\   ." rx-byte "
+   q.
    0
    8 0 do qclk-1 q. shl qd1@ 1 and or  qclk-0 q. loop ;
 : xfer-cmd ( c -- )   
@@ -549,8 +566,38 @@ GPIOE #15 + constant qd3
    Q_CMD_WRITE_DISABLE xfer-cmd xfer-complete ;
 : q-read-mem ( buffer num a -- ) \ transfer num byte from address to buffer
    $03 xfer-cmd dup #16 rshift $ff and tx-byte 
-   dup #8 lshift $ff and tx-byte
+   dup #8 rshift $ff and tx-byte
    $ff and tx-byte
    0 do rx-byte over i + c! loop 
    xfer-complete drop ;
+: q-bb-c@ ( a -- c )
+  $03 xfer-cmd
+  dup #16 rshift $ff and tx-byte
+  dup  #8 rshift $ff and tx-byte
+  $ff and tx-byte
+  \ .s
+  rx-byte q-idle ;
+: qdbb ( adr -- )
+   poll-init 
+   c@-hook @ swap
+   ['] q-bb-c@ c@-hook !
+   qd c@-hook ! ;
+: qdd ( adr -- )
+   qspi-init
+   c@-hook @ swap
+   ['] q-flash-c@ c@-hook !
+   qd
+   c@-hook ! ;
+\ $53C250B fast read 15 dummy 
+: q-fast-read  $500250B 14 DUMMY QUADSPI_CCR ! 0 QUADSPI_AR ! ;
+: fast-read-1-1-1 $500250B #8 DUMMY QUADSPI_CCR ! ;
+
+$B 1 FMODE 3 DMODE #10 dummy #24 adsize 3 admode 3 imode constant fast-read-4-4-4
+$B 1 FMODE 1 DMODE  #8 dummy #24 adsize 1 admode 1 imode constant fast-read-1-1-1
+
+\ test number of dummy cycles
+: qq ( dummy ) $500250B swap DUMMY QUADSPI_CCR ! 0 QUADSPI_AR ! 
+   begin qspi-fifo-level# 0<> until 
+   QUADSPI_DR c@ . ;
+   
    
