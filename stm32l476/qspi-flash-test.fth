@@ -7,6 +7,9 @@
 \ QSPI_D3  - PE15
 \ 
 \ N25Q128A commands "C:\Users\jeanjo\Downloads\stm\n25q_128mb_3v_65nm.pdf"
+\ hardware bug in stm32l476 qspi - no quad mode command only support see
+\ http://www.st.com/st-web-ui/static/active/en/resource/technical/document/errata_sheet/DM00111498.pdf
+
 
 $66 constant Q_CMD_RESET_ENABLE
 $99 constant Q_CMD_RESET_MEMORY
@@ -136,7 +139,11 @@ $FFFF           constant QUADSPI_LPTR_TIMEOUT \ Timeout period
 $48001000   constant GPIOE
 GPIOE       constant GPIOE_MODER
 $24 GPIOE + constant GPIOE_AFRH
-
+$10         constant GPIO_IDR
+$18         constant GPIO_BSRR
+GPIOE GPIO_IDR  + constant GPIOE_IDR
+GPIOE GPIO_BSRR + constant GPIOE_BSRR
+$04 GPIOE + constant GPIOE_OTYPER
 
 
 
@@ -168,12 +175,12 @@ $24 GPIOE + constant GPIOE_AFRH
    #23 qspi-fsize!
    0 qspi-ckmode!
    #7 qspi_csht!
-   #15 qspi-prescaler!
+   #255 qspi-prescaler!
    q-ena ;
-: qspi-fifo-level# ( -- n )
+: qspi-fifo# ( -- n )
   QUADSPI_SR @ 8 rshift $1f and ;
-: q-c@ ( -- c )
-   qspi-fifo-level# 0=
+: q-fifo-c@ ( -- c )
+   qspi-fifo# 0=
    QUADSPI_DR c@ $ff and or ;
 : q-i-mode! ( n -- )
    QUADSPI_CCR_IMODE QUADSPI_CCR bits! ;
@@ -193,18 +200,18 @@ $24 GPIOE + constant GPIOE_AFRH
 : FMODE ( v fm -- v ) #26 lshift or 2-foldable inline ; \ 0:ind write 1:ind read 2:poll 3:memmap
 : DMODE ( v dm -- v ) #24 lshift or 2-foldable inline ; \ 0:no 1:1Line 2:2line 3:4line
 : DUMMY ( v du -- v ) #18 lshift or 2-foldable inline ; \ 0-31 dummy cycles
-: ABSIZE ( v abs -- v ) 8 / 1 - #16 lshift or 2-foldable ; \ 8,16,24,32
+: ABSIZE ( v abs -- v ) #8 / #1 - #16 lshift or 2-foldable ; \ 8,16,24,32
 : ABMODE ( v abm -- v ) #14 lshift or 2-foldable inline ; \ 0:no 1:1Line 2:2line 3:4line
-: ADSIZE ( v ads -- v ) 8 / 1 - #12 lshift or 2-foldable ; \ 8,16,24,32
+: ADSIZE ( v ads -- v ) #8 / #1 - #12 lshift or 2-foldable ; \ 8,16,24,32
 : ADMODE ( v adm -- v ) #10 lshift or 2-foldable inline ; \ 0:no 1:1Line 2:2line 3:4line
 : IMODE  ( v im -- v ) #8 lshift or 2-foldable inline ; \ 0:no 1:1Line 2:2line 3:4line
 
 
-1 variable qspi-ab-mode                       \ alternate byte mode 1:1-wire 2:2-wire 3:4wire
-1 variable qspi-adr-mode                      \ address mode 1:1-wire 2:2-wire 3:4wire
-1 variable qspi-cmd-mode                      \ instruction mode 1:1-wire 2:2-wire 3:4wire
-1 variable qspi-data-mode                     \ data mode 1:1-wire 2:2-wire 3:4wire
-8 variable qspi-dummy#                        \ number of dummy cycles for fast read 8:1-wire 10:4-wire
+#1 variable qspi-ab-mode                       \ alternate byte mode 1:1-wire 2:2-wire 3:4wire
+#1 variable qspi-adr-mode                      \ address mode 1:1-wire 2:2-wire 3:4wire
+#1 variable qspi-cmd-mode                      \ instruction mode 1:1-wire 2:2-wire 3:4wire
+#1 variable qspi-data-mode                     \ data mode 1:1-wire 2:2-wire 3:4wire
+#8 variable qspi-dummy#                        \ number of dummy cycles for fast read 8:1-wire 10:4-wire
 
 : qspi-read-reg ( cmd -- n )                  \ compose read register command param depending on mode
    qspi-cmd-mode @ imode 1 fmode qspi-data-mode @ dmode ;
@@ -222,34 +229,36 @@ $24 GPIOE + constant GPIOE_AFRH
    qspi-data-mode @ dmode ;
 
 : q-fifo. ( -- )                              \ dump qspi fifo
-  begin qspi-fifo-level# 0<> if q-c@ . then
+  begin qspi-fifo# 0<> if q-fifo-c@ . then
   qspi-busy? not until ;
 : qc-c@ ( -- c )                              \ fetch next byte from fifo
   qspi-busy?
   if
-    begin qspi-fifo-level#
+    begin qspi-fifo#
     0<> qspi-busy? not or until
-    q-c@
+    q-fifo-c@
   else -1
   then ;
 : qc-c! ( c -- )                              \ write byte when fifo has place free
 \   qspi-busy? if
-      begin qspi-fifo-level# 15 < 
+      begin qspi-fifo# 15 < 
       until QUADSPI_DR c!
 \   then
    ;
 : q-reg@ ( len cmd -- c1 c2 ... cn )          \ read len bytes from register
-   over q-datalength! qspi-read-reg  QUADSPI_CCR !
+   qspi-read-reg  QUADSPI_CCR !
+   dup q-datalength!
    0 do qc-c@ loop ;
 : q-reg. ( len cmd -- )                       \ dump len bytes from register
    over q-datalength! qspi-read-reg  QUADSPI_CCR !
    0 do qc-c@ . loop ;
 : q-reg! ( cn ... c2 c1 len cmd -- )          \ send len bytes to register
-   qspi-write-reg QUADSPI_CCR !
-   dup q-datalength! 
-   0 do qc-c! loop ;
+   .s
+   over q-datalength! 
+   qspi-write-reg .s QUADSPI_CCR !
+   0 do .s qc-c! loop ;
 : q-cmd! ( cmd -- )                           \ send cmd
-   qspi-send-cmd QUADSPI_CCR ! ;
+   qspi-send-cmd .s QUADSPI_CCR ! ;
 : q-wr-ena ( -- )                             \ send write enable command
    Q_CMD_WRITE_ENABLE q-cmd! ;
 : q-wr-dis ( -- )                             \ send write enable command
@@ -266,6 +275,8 @@ $24 GPIOE + constant GPIOE_AFRH
    1 Q_CMD_WRITE_EVCR q-reg! ;
 : q-sr@ ( -- c )                              \ get status register     
   1 Q_CMD_READ_STATUS_REGISTER q-reg@ ;
+: q-sr! ( evcfg -- )                        \ write extended volatile configuration register
+   1 Q_CMD_WRITE_STATUS_REGISTER q-reg! ;
 : q-bsy? ( -- f )                             \ qspi chip busy ?
    q-sr@ 1 and 0<> ;
 : q-wait-complete ( -- )                      \ wait until qspi flash chip is ready
@@ -284,7 +295,7 @@ $24 GPIOE + constant GPIOE_AFRH
 : q-flash! ( w adr -- )                       \ write a word to address
    q-wr-ena Q_CMD_PAGE_PROGRAM
    qspi-send-cmd-adr-data QUADSPI_CCR !
-   QUADSPI_AR ! 4 q-datalength!  QUADSPI_DR !
+   QUADSPI_AR ! #4 q-datalength!  QUADSPI_DR !
    q-wait-complete ;
 : q-dummy-cycles ( -- n )                     \ get current number of dummy cycles
    q-vcr@ #4 rshift $F and ;
@@ -324,6 +335,7 @@ $24 GPIOE + constant GPIOE_AFRH
 
 : u.4 ( u -- ) 0 <# # # # # #> type ;
 : u.2 ( u -- ) 0 <# # # #> type ;
+: c.x ( u -- ) base @ swap 0 hex <# # # #> type base ! ;
 : < ( a b -- f ) - 0< 2-foldable inline ;
 : > ( a b -- f ) swap - 0< 2-foldable inline ;
 : >= ( a b -- f ) - 0< not 2-foldable inline ;
@@ -358,7 +370,7 @@ $24 GPIOE + constant GPIOE_AFRH
    dup ( n c...c n n )                        \ fill remaining space in hex line when n<16
    #16 swap ( n c...c n 16 n )                \ prepare loop counter
    ?do 3 spaces loop ( n c..c n )             \ put 3 spaces for 2 hex digits + limiter
-   [char] | emit                              \ put a bar
+   [char] | emit space                        \ put a bar
    0 do >R loop ( n -- ) ( R: -- cc )         \ shuffle char list from stack to return stack
    0 do r> c. loop ;                          \ reverse output char list
 
@@ -412,19 +424,30 @@ GPIOE #12 + constant qd0
 GPIOE #13 + constant qd1
 GPIOE #14 + constant qd2
 GPIOE #15 + constant qd3
-
 : qd0@ ( -- f )
-   qd0 $f and 1 swap lshift qd0 $f not and $10 + bit@ ;
+   qd0 $f and 1 swap lshift qd0 $f not and GPIO_IDR + bit@ ;
 : qd1@ ( -- f )
-   qd1 $f and 1 swap lshift qd1 $f not and $10 + bit@ ;
+   qd1 $f and 1 swap lshift qd1 $f not and GPIO_IDR + bit@ ;
 : qd2@ ( -- f )
-   qd2 $f and 1 swap lshift qd2 $f not and $10 + bit@ ;
+   qd2 $f and 1 swap lshift qd2 $f not and GPIO_IDR + bit@ ;
 : qd3@ ( -- f )
-   qd3 $f and 1 swap lshift qd3 $f not and $10 + bit@ ;
+   qd3 $f and 1 swap lshift qd3 $f not and GPIO_IDR + bit@ ;
 : qcs@ ( -- f )
-   qcs $f and 1 swap lshift qcs $f not and $10 + bit@ ;
+   qcs $f and 1 swap lshift qcs $f not and GPIO_IDR + bit@ ;
 : qclk@ ( -- f )
-   qclk $f and 1 swap lshift qclk $f not and $10 + bit@ ;
+   qclk $f and 1 swap lshift qclk $f not and GPIO_IDR + bit@ ;
+: bqd0 ( w f -- w ) \ set flag 
+   0= #16 and qd0 $f and + 1 swap lshift or 2-foldable ; 
+: bqd1 ( w f -- w )
+   0= #16 and qd1 $f and + 1 swap lshift or 2-foldable ; 
+: bqd2 ( w f -- w )
+   0= #16 and qd2 $f and + 1 swap lshift or 2-foldable ; 
+: bqd3 ( w f -- w )
+   0= #16 and qd3 $f and + 1 swap lshift or 2-foldable ; 
+: bqcs ( w f -- w )
+   0= #16 and qcs $f and + 1 swap lshift or 2-foldable ; 
+: bqclk ( w f -- w )
+   0= #16 and qclk $f and + 1 swap lshift or 2-foldable ;
 : qd0-1 ( )
    1 qd0 $f and lshift qd0 $f not and $18 + ! ;   
 : qd1-1 ( )
@@ -467,7 +490,16 @@ GPIOE #15 + constant qd3
    if qcs-1 else qcs-0 then ;   
 : qclk! ( f )
    if qclk-1 else qclk-0 then ;   
-
+: q-bb4-input ( -- )
+  qd3 input
+  qd2 input
+  qd1 input
+  qd0 input ;
+: q-bb4-output ( -- )
+  qd3 output
+  qd2 output
+  qd1 output
+  qd0 output ;
 : poll-init ( )
   gpioe-clock-ena
   qd3 output
@@ -478,7 +510,7 @@ GPIOE #15 + constant qd3
   qclk output
   qd3-1
   qd2-1 ;
-: b0 1 and ;
+: b0 1 and ; \ bit 0
 : q. cr
  ." cs " qcs@ b0 .  
  ." clk " qclk@ b0 .  
@@ -508,18 +540,59 @@ GPIOE #15 + constant qd3
    rxb @ 2* qd1@ 1 and + rxb !
    ." rxb " rxb @ hex. cr
    qclk-0  q. ;  \ msb-\  
-
-\ : q. dup drop ( -- ) ;   
-   
-: tx-byte ( c -- )
+: q-bb4-c! ( c -- )                           \ send byte in quad mode bit bang
+   qclk-0
+   q-bb4-output
+   dup $80 and qd3! 
+   dup $40 and qd2! 
+   dup $20 and qd1! 
+   dup $10 and qd0!
+   qclk-1
+   qclk-0
+   dup $8 and qd3! 
+   dup $4 and qd2! 
+   dup $2 and qd1! 
+   $1 and qd0!
+   qclk-1 ;
+: q-bb4-c@ ( -- c )                           \ receive byte in quad mode bit bang
+   q-bb4-input
+   qclk-0
+   qclk-1
+   qd3@ $80 and 
+   qd2@ $40 and or
+   qd1@ $20 and or
+   qd0@ $10 and or
+   qclk-0
+   qclk-1
+   qd3@ $8 and 
+   qd2@ $4 and or
+   qd1@ $2 and or
+   qd0@ $1 and or
+   qclk-0 ; 
+1 variable qspi-mode   
+: tx-byte-1 ( c -- )
    \ dup cr ." send " hex.
    8 0 do dup $80 and qd0! q. shl qclk-1 q. qclk-0 q. loop
    drop ;
-: rx-byte ( -- c )
+: tx-byte-4  ( c -- )                         \ send byte in quad mode
+   q-bb4-c! ;
+: tx-byte  ( c -- )                           \ transmit a byte
+   qspi-mode @ case
+     1 of tx-byte-1 endof
+     4 of tx-byte-4 endof
+     drop endcase ;
+: rx-byte-1 ( -- c )
 \   ." rx-byte "
    q.
    0
    8 0 do qclk-1 q. shl qd1@ 1 and or  qclk-0 q. loop ;
+: rx-byte-4 ( -- c )
+   q-bb4-c@ ;
+: rx-byte ( -- c )
+   qspi-mode @ case
+     1 of rx-byte-1 endof
+     4 of rx-byte-4 endof
+     drop endcase ;
 : xfer-cmd ( c -- )   
    q-idle dup $80 and qd0! qcs-0 q.
    tx-byte ;
@@ -528,7 +601,7 @@ GPIOE #15 + constant qd3
 : get-id Q_CMD_READ_ID xfer-cmd
    20 0 do i . rx-byte  hex. cr loop
    xfer-complete ;
-: get-nvcr ( -- )
+: get-vcr ( -- )
    Q_CMD_READ_VOLATILE_CONFIGURATION_REGISTER xfer-cmd
    rx-byte 8 lshift rx-byte or xfer-complete ;
 : q-write-enable ( -- )
@@ -566,9 +639,25 @@ GPIOE #15 + constant qd3
 $B 1 FMODE 3 DMODE #10 dummy #24 adsize 3 admode 3 imode constant fast-read-4-4-4
 $B 1 FMODE 1 DMODE  #8 dummy #24 adsize 1 admode 1 imode constant fast-read-1-1-1
 
+
 \ test number of dummy cycles
 : qq ( dummy ) $500250B swap DUMMY QUADSPI_CCR ! 0 QUADSPI_AR ! 
-   begin qspi-fifo-level# 0<> until 
+   begin qspi-fifo# 0<> until 
    QUADSPI_DR c@ . ;
-   
-   
+#1024 buffer: labuffer
+0 variable la#
+: la-run ( -- )
+   0
+   begin
+     GPIOE_IDR @ #10 rshift $3f and
+     tuck - 0<>
+     if dup la# @ labuffer + c!
+       la# @ 1+ $3ff and la# !
+     then
+   key? until ;
+: test-wr 0 la# !
+  $306 QUADSPI_CCR ! la-run ;
+: b.6 ( n -- ) base @ swap binary 0 <# # # # # # # #> type base ! ;
+: ld cr la# @ 0 do
+   i dup .
+   labuffer + c@ b.6 cr loop ;
