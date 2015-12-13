@@ -554,6 +554,16 @@ GPIOE #15 + constant qd3
    dup $2 and qd1! 
    $1 and qd0!
    qclk-1 ;
+: q-bb4-c@  ( -- c )                         \ faster qspi read function 
+   q-bb4-input
+   qclk-0
+   qclk-1
+   GPIOE_IDR @ #8 lshift $f0 and
+   qclk-0
+   qclk-1
+   GPIOE_IDR @ #12 lshift $f and or 
+   qclk-0 ;
+   
 : q-bb4-c@ ( -- c )                           \ receive byte in quad mode bit bang
    q-bb4-input
    qclk-0
@@ -599,7 +609,7 @@ GPIOE #15 + constant qd3
 : xfer-complete ( -- )
    q-idle ;
 : get-id Q_CMD_READ_ID xfer-cmd
-   20 0 do i . rx-byte  hex. cr loop
+   20 0 do i . rx-byte  c.x cr loop
    xfer-complete ;
 : get-vcr ( -- )
    Q_CMD_READ_VOLATILE_CONFIGURATION_REGISTER xfer-cmd
