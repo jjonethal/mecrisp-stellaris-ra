@@ -17,7 +17,7 @@
 @
 
 .syntax unified
-.cpu cortex-m4
+.cpu cortex-m7
 .thumb
 
 @ -----------------------------------------------------------------------------
@@ -45,9 +45,9 @@
 
 @ Konstanten für die Größe und Aufteilung des Flash-Speichers
 
-.equ Kernschutzadresse,     0x00008000 @ Darunter wird niemals etwas geschrieben ! Mecrisp core never writes flash below this address.
-.equ FlashDictionaryAnfang, 0x00008000 @ 32  kb für den Kern reserviert...         32  kb Flash reserved for core.
-.equ FlashDictionaryEnde,   0x00100000 @ 480 kb Platz für das Flash-Dictionary     480 kb Flash available. Porting: Change this !
+.equ Kernschutzadresse,     0x00208000 @ Darunter wird niemals etwas geschrieben ! Mecrisp core never writes flash below this address.
+.equ FlashDictionaryAnfang, 0x00208000 @ 32  kb für den Kern reserviert...         32  kb Flash reserved for core.
+.equ FlashDictionaryEnde,   0x00300000 @ 992 kb Platz für das Flash-Dictionary     992 kb Flash available. Porting: Change this !
 .equ Backlinkgrenze,        RamAnfang  @ Ab dem Ram-Start.
 
 

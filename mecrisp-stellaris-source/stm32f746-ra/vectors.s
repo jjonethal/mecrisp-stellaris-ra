@@ -112,5 +112,30 @@
 
 .word nullhandler+1 @ Position 80:
 .word nullhandler+1 @ Position 81:
+.word nullhandler+1 @ Position 82:
+.word nullhandler+1 @ Position 83:
+.word nullhandler+1 @ Position 84:
+.word nullhandler+1 @ Position 85:
+.word nullhandler+1 @ Position 86:
+.word nullhandler+1 @ Position 87:
+.word nullhandler+1 @ Position 88:
+.word nullhandler+1 @ Position 89:
+
+.word nullhandler+1 @ Position 90:
+.word nullhandler+1 @ Position 91:
+.word nullhandler+1 @ Position 92:
+.word nullhandler+1 @ Position 93:
+.word nullhandler+1 @ Position 94:
+.word nullhandler+1 @ Position 95:
+.word nullhandler+1 @ Position 96:
+.word nullhandler+1 @ Position 97:
+.word nullhandler+1 @ Position 98:
+.word nullhandler+1 @ Position 99:
+
+.word nullhandler+1 @ Position 100:
+.word nullhandler+1 @ Position 101:
+.word nullhandler+1 @ Position 102:
+.word nullhandler+1 @ Position 103:
+.word nullhandler+1 @ Position 104:
 
 @ -----------------------------------------------------------------------------

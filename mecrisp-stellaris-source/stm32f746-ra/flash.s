@@ -140,6 +140,8 @@ c_flashkomma:
   @ Okay, alle Proben bestanden. 
 
   @ Im STM32F4 ist der Flash-Speicher gespiegelt, die wirkliche Adresse liegt weiter hinten !
+  bics r0, #0xF0000000
+  bics r0, #0x0FF00000
   adds r0, #0x08000000
 
   @ Bereit zum Schreiben !
