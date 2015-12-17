@@ -69,7 +69,7 @@
   .equ Terminal_TDR    ,   Terminal_USART_Base + 0x28
 
 @ defs for USART_CR1 register
-  .equ USART_CR1_UE    ,   BIT1
+  .equ USART_CR1_UE    ,   BIT0
   .equ USART_CR1_TE    ,   BIT3
   .equ USART_CR1_RE    ,   BIT2
 @ Flags for USART_ISR register:
