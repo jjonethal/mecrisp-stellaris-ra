@@ -16,13 +16,13 @@
 @    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 @
 
-@ Schreiben und Löschen des Flash-Speichers im STM32F4.
+@ Schreiben und Löschen des Flash-Speichers im STM32F746.
 
 @ In diesem Chip gibt es Flashschreibzugriffe mit wählbarer Breite -
 @ so ist es diesmal ganz komfortabel. Leider gibt es nur weniger große
 @ Sektoren, die getrennt gelöscht werden können.
 
-@ Write and Erase Flash in STM32F411xE.
+@ Write and Erase Flash in STM32F746.
 @ Porting: Rewrite this ! You need hflash! and - as far as possible - cflash!
 
 .equ FLASH_Base, 0x40023C00
@@ -34,6 +34,7 @@
 .equ FLASH_CR,      FLASH_Base + 0x10 @ Flash Control Register
 .equ FLASH_OPTCR,   FLASH_Base + 0x14 @ Flash Option Control Register
 
+.equ flashOverwrite, 1
 
 @ -----------------------------------------------------------------------------
   Wortbirne Flag_visible, "hflash!" @ ( x Addr -- )
@@ -42,7 +43,6 @@ h_flashkomma:
 @ -----------------------------------------------------------------------------
   popda r0 @ Adresse
   popda r1 @ Inhalt.
-
   @ Ist die gewünschte Stelle im Flash-Dictionary ? Außerhalb des Forth-Kerns ?
   ldr r3, =Kernschutzadresse
   cmp r0, r3
@@ -63,18 +63,28 @@ h_flashkomma:
   ands r2, r0, #1
   cmp r2, #0
   bne 3f
-
-  @ Ist an der gewünschten Stelle -1 im Speicher ?
+.ifndef flashOverwrite 
+  @ is there 0xffff at programming location ?
   ldrh r2, [r0]
   cmp r2, r3
   bne 3f
+.else  
+  @ Is place overwritable ?
+  ldrh r2, [r0]
+  and r2, r1
+  cmp r2, r1
+  bne 3f
+.endif
+  
+  @ Okay, all tests passed. 
 
-  @ Okay, alle Proben bestanden. 
-
-  @ Im STM32F4 ist der Flash-Speicher gespiegelt, die wirkliche Adresse liegt weiter hinten !
+  @ In STM32F7 flash-memory write location is at 0x0800 0000
+  @ so we relocate write request to that area
+  bics r0, #0xff000000
+  bics r0, #0x00F00000
   adds r0, #0x08000000
 
-  @ Bereit zum Schreiben !
+  @ ready for writing !
 
   @ Unlock Flash Control
   ldr r2, =FLASH_KEYR
@@ -84,13 +94,33 @@ h_flashkomma:
   str r3, [r2]
 
   @ Set size to write
-  ldr r2, =FLASH_CR
+4: ldr r2, =FLASH_CR
   ldr r3, =0x00000101 @ 16 Bits programming
   str r3, [r2]
+  ldr r3, [r2]
+  ldr r2, =0x00000101
+  cmp r3, r2
+  bne 4b
+  
+  @ make sure r1 is written after flash programming enabled
+  DSB 
 
   @ Write to Flash !
   strh r1, [r0]
+  dsb
+  @ wait with turn of after flash written 
 
+.ifdef turnOff  
+  @ turn off writing write
+5: ldr r2, =FLASH_CR
+  ldr r3, =0x00000100 @ 16 Bits programming
+  str r3, [r2]
+  ldr r3, [r2]
+  ldr r2, =0x00000100
+  cmp r3, r2
+  bne 5b 
+.endif  
+  
   @ Wait for Flash BUSY Flag to be cleared
   ldr r2, =FLASH_SR
 
@@ -140,8 +170,8 @@ c_flashkomma:
   @ Okay, alle Proben bestanden. 
 
   @ Im STM32F4 ist der Flash-Speicher gespiegelt, die wirkliche Adresse liegt weiter hinten !
-  bics r0, #0xF0000000
-  bics r0, #0x0FF00000
+  bics r0, #0xFF000000
+  bics r0, #0x00E00000
   adds r0, #0x08000000
 
   @ Bereit zum Schreiben !
@@ -205,9 +235,9 @@ eraseflashsector:  @ Löscht einen Flash-Sektor
 
     @ Wait for Flash BUSY Flag to be cleared
     ldr r2, =FLASH_SR
-1:    ldr r3, [r2]
-      ands r3, #0x00010000
-      bne 1b
+1:  ldr r3, [r2]
+    ands r3, #0x00010000
+    bne 1b
 
   @ Lock Flash after finishing this
   ldr r2, =FLASH_CR
