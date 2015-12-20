@@ -37,7 +37,7 @@
   .equ GPIOA_AFRL      ,   GPIOA_BASE + 0x20
   .equ GPIOA_AFRH      ,   GPIOA_BASE + 0x24
 
-  .equ GPIOB_BASE      ,   0x40020400
+  .equ GPIOB_BASE      ,   (0x40020000 + (1*0x400))
   .equ GPIOB_MODER     ,   GPIOB_BASE + 0x00
   .equ GPIOB_OTYPER    ,   GPIOB_BASE + 0x04
   .equ GPIOB_OSPEEDR   ,   GPIOB_BASE + 0x08
@@ -48,6 +48,8 @@
   .equ GPIOB_LCKR      ,   GPIOB_BASE + 0x1C
   .equ GPIOB_AFRL      ,   GPIOB_BASE + 0x20
   .equ GPIOB_AFRH      ,   GPIOB_BASE + 0x24
+  
+  .equ GPIOK_MODER     ,   (GPIOA_BASE + (10*0x400))
 
   .equ RCC_BASE        ,   0x40023800
   .equ RCC_AHB1ENR     ,   RCC_BASE + 0x30
@@ -89,6 +91,11 @@ uart_init: @ ( -- )
   orrs r0, #0x00F
   orrs r0, #0x7F0
   str  r0, [r1]
+  
+  @ shutdown display illumination for now
+  ldr r1, =GPIOK_MODER
+  ldr r0, =0x80
+  str r0, [r1]  
 
   @ Set PORTA pins in alternate function mode
   ldr  r1, = GPIOA_MODER
