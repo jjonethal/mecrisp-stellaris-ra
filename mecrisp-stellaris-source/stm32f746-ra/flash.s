@@ -189,7 +189,9 @@ c_flashkomma:
   str r3, [r2]
 
   @ Write to Flash !
+  dsb
   strb r1, [r0]
+  dsb
 
   @ Wait for Flash BUSY Flag to be cleared
   ldr r2, =FLASH_SR
