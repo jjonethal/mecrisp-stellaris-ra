@@ -7,7 +7,7 @@
 : bits!  ( n m adr -- )                       \ set bitfield at position $1234 v ! $5 $f00 v bits! v @ $1534 = . (-1)
    >R dup >R cnt0 lshift                      \ shift value to proper pos
    R@ and                                     \ mask out unrelated bits
-   R> not R@ @ and                            \ invert bitmask and makout new bits
+   R> not R@ @ and                            \ invert bitmask and maskout new bits
    or r> ! ;                                  \ apply value and store back
 : bit-mask! ( v m adr -- )                    \ set bit masked value at 
    >R tuck and swap not r@ @ and or r> ! ; 
