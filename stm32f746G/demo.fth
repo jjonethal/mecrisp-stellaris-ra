@@ -197,17 +197,17 @@ $3             constant PLLSAI-DIVR/16
    begin pll-on pll-ready? until ;
 : pll-clk-src-hse  ( -- )                \ set main pll source to hse
    #1 #22 lshift RCC_PLLCFGR bis! ;
-: PLL-M!  ( n -- )                       \ set main pll clock pre divider
+: pll-m!  ( n -- )                       \ set main pll clock pre divider
    $1f RCC_PLLCFGR bits! ;
-: PLL-M@  ( -- n )                       \ get main pll clock pre divider
+: pll-m@  ( -- n )                       \ get main pll clock pre divider
    $1f RCC_PLLCFGR bits@ ;
 : pll-n!  ( n -- )                       \ set Main PLL (PLL) multiplication factor
    $1ff #6 lshift RCC_PLLCFGR bits! ;
 : pll-n@  ( -- n )                       \ get Main PLL (PLL) multiplication factor
    $1ff #6 lshift RCC_PLLCFGR bits@ ;
-: PLL-P!  ( n -- )                       \ set  Main PLL (PLL) divider
+: pll-p!  ( n -- )                       \ set  Main PLL (PLL) divider
    #3 #16 lshift RCC_PLLCFGR bits! ;
-: PLL-P@  ( n -- )                       \ set  Main PLL (PLL) divider
+: pll-p@  ( n -- )                       \ set  Main PLL (PLL) divider
    #3 #16 lshift RCC_PLLCFGR bits@ ;
 : pllsai-off  ( -- )                     \ turn off PLLSAI
    #1 #28 lshift RCC_CR bic! ;
@@ -304,10 +304,10 @@ $FFF #16 lshift  constant LTDC_BPCR_AHBP    \ HSYNC Width  + HBP - 1
 $7FF             constant LTDC_BPCR_AVBP    \ VSYNC Height + VBP - 1
 $10 LTDC +       constant LTDC_AWCR         \ Active Width Configuration Register
 $FFF #16 lshift  constant LTDC_AWCR_AAW     \ HSYNC width  + HBP  + Active Width  - 1
-$7ff             constant LTDC_AWCR_AAH     \ VSYNC Height + BVBP + Active Height - 1
+$7FF             constant LTDC_AWCR_AAH     \ VSYNC Height + BVBP + Active Height - 1
 $14 LTDC +       constant LTDC_TWCR         \ Total Width Configuration Register
-$fff #16 lshift  constant LTDC_TWCR_TOTALW  \ HSYNC Width + HBP  + Active Width  + HFP - 1
-$7ff             constant LTDC_TWCR_TOTALH  \ VSYNC Height+ BVBP + Active Height + VFP - 1
+$FFF #16 lshift  constant LTDC_TWCR_TOTALW  \ HSYNC Width + HBP  + Active Width  + HFP - 1
+$7FF             constant LTDC_TWCR_TOTALH  \ VSYNC Height+ BVBP + Active Height + VFP - 1
 $18 LTDC +       constant LTDC_GCR          \ Global Control Register
 1  #31 lshift    constant LTDC_GCR_HSPOL    \ Horizontal Synchronization Polarity 0:active low 1: active high
 1  #30 lshift    constant LTDC_GCR_VSPOL    \ Vertical Synchronization Polarity 0:active low 1:active high
@@ -453,7 +453,8 @@ PK3  constant LCD_BL                     \ lcd back light port
 #2   constant RK043FN48H_VBP             \ Vertical back porch
 #2   constant RK043FN48H_VFP             \ Vertical front porch
 
-
+RK043FN48H_WIDTH  constant MAX_WIDTH     \ maximum width
+RK043FN48H_HEIGHT constant MAX_HEIGHT    \ maximum height
 \ ***** lcd functions *******************
 : lcd-backlight-init  ( -- )             \ initialize lcd backlight port
    LCD_BL port# rcc-gpio-clk-on          \ turn on gpio clock
@@ -511,10 +512,13 @@ PK3  constant LCD_BL                     \ lcd back light port
    0 0 0 lcd-back-color!
    lcd-init-polarity
    lcd-backlight-init lcd-backlight-on ;
+\ ***** lcd layer functions *************
 0   constant layer0
 $80 constant layer1
 : layer-base ( l -- offset )                 \ layer offset
    0<> $80 and LTDC + 1-foldable ;
+: layer-base ( l -- offset )                 \ layer offset
+   LTDC + 1-foldable ;
 : lcd-layer-on  ( layer -- )                 \ turn on layer
    layer-base $84 + 1 swap bis! ;
 : lcd-layer-off  ( layer -- )                \ turn off layer
@@ -547,25 +551,51 @@ $80 constant layer1
    layer-base $a0 + -rot swap 8 lshift or swap ! ;
 : lcd-layer-fb-adr!  ( a layer -- )          \ set layer frame buffer start adr
    layer-base $ac + swap ! ;
+: lcd-layer-fb-adr@  ( layer -- a )          \ get layer frame buffer start adr
+   layer-base $ac + swap @ ;
 : lcd-layer-fb-pitch! ( pitch layer -- )     \ set layer line distance in byte
    layer-base $B0 + $1FFF0000 swap bits! ;
 : lcd-layer-fb-line-length! ( ll layer -- )  \ set layer line length in byte
    layer-base $B0 + $1FFF swap bits! ;
-: lcd-layer-num-lines ( lines layer -- )     \ set layer number of lines to buffer
+: lcd-layer-num-lines! ( lines layer -- )    \ set layer number of lines to buffer
    layer-base $b4 + $7ff swap bits! ;
 : lcd-layer-color-map ( c i l -- )           \ set layer color at map index
-   layer-base $c4 + -rot
-   $ff and #24 lshift swap
-   $ffffff and or
+   layer-base $c4 +
+   -rot $ff and #24 lshift                   \ shift index to pos [31..24]
+   swap $ffffff and or                       \ cleanup color
    swap ! ;
-: layer-0-init ( -- )
-   layer0 lcd-layer-off layer0 lcd-layer-color-lookup-table-ena
-   0 layer0 lcd-layer-h-start! RK043FN48H_WIDTH  layer0 lcd-layer-h-end!
-   0 layer0 lcd-layer-v-start! RK043FN48H_HEIGHT layer0 lcd-layer-v-end!
-   0 layer0 lcd-layer-key-color!
-   0 layer0 lcd-layer-pixel-format! ;
+   
+MAX_WIDTH MAX_HEIGHT * dup BUFFER: lcd-fb0-buffer constant lcd-fb0-size#
+lcd-fb0-buffer variable lcd-fb0              \ frame buffer 0 pointer
+lcd-fb0-size#  variable lcd-fb0-size         \ frame buffer 0 size
+: lcd-layer-colormap-gray-scale ( layer -- ) \ grayscale colormap quick n dirty
+   >R
+   #256 0 do
+     i dup dup #8 lshift or #8 lshift or
+     i r@ lcd-layer-color-map
+   loop ;
+   
+: fb-init-0-ff ( layer -- )                  \ fill frame buffer with values 0..255
+   lcd-layer-fb-adr@
+   MAX_WIDTH MAX_HEIGHT * 0 do dup i + i swap c! loop ;
+: lcd-layer-0-init ( -- )
+   layer0 lcd-layer-off
+   layer0 lcd-layer-color-lookup-table-ena
+   0 layer0 lcd-layer-h-start!
+   MAX_WIDTH  layer0 lcd-layer-h-end!
+   0 layer0 lcd-layer-v-start!
+   MAX_HEIGHT layer0 lcd-layer-v-end!         \ vertical end / height
+   0 layer0 lcd-layer-key-color!              \ key color black no used here
+   #5 layer0 lcd-layer-pixel-format!          \ 8 bit per pixel frame buffer format
+   lcd-fb0 @ layer0 lcd-layer-fb-adr!         \ set frame buffer address
+   MAX_WIDTH layer0 lcd-layer-fb-pitch!
+   MAX_WIDTH layer0 lcd-layer-fb-line-length!
+   MAX_HEIGHT layer0 lcd-layer-num-lines!
+   layer0 fb-init-0-ff
+   layer0 lcd-layer-colormap-gray-scale
+   ;
 : lcd-init  ( -- )                       \ pll-input frequency must be 1 MHz
    lcd-clk-init lcd-backlight-init
    lcd-display-init lcd-gpio-init ;
-
-
+: demo ( -- )
+   sys-clk-200-mhz lcd-init lcd-layer0-init ;
