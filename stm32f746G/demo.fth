@@ -469,6 +469,7 @@ RK043FN48H_HEIGHT constant MAX_HEIGHT    \ maximum height
    rcc-ltdc-clk-on
    pllsai-clk-96-mhz ;
 : lcd-gpio-init ( -- )                   \ initialize all lcd gpio ports
+\ TODO: fast mode
    #14 LCD_R0 MODE-AF  #14 LCD_R1 MODE-AF  #14 LCD_R2 MODE-AF  #14 LCD_R3 MODE-AF
    #14 LCD_R4 MODE-AF  #14 LCD_R4 MODE-AF  #14 LCD_R6 MODE-AF  #14 LCD_R7 MODE-AF
 
