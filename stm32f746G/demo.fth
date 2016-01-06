@@ -192,7 +192,7 @@ $3             constant PLLSAI-DIVR/16
 : pll-on  ( -- )                         \ turn on main pll
    #1 #24 lshift RCC_CR bis! ;
 : pll-ready?  ( -- f )                   \ pll stable ?
-   #1 #25 RCC_CR bit@ ;
+   #1 #25 lshift RCC_CR bit@ ;
 : pll-wait-stable  ( -- )                \ wait until pll is stable
    begin pll-on pll-ready? until ;
 : pll-clk-src-hse  ( -- )                \ set main pll source to hse
@@ -466,7 +466,7 @@ RK043FN48H_HEIGHT constant MAX_HEIGHT    \ maximum height
 : lcd-backlight-off  ( -- )              \ lcd back light on
    LCD_BL bsrr-off LCD_BL port-base GPIO_BSRR + ! ;
 : lcd-clk-init ( -- )                    \ enable 
-   $1 #26 lshift RCC_APB2ENR bis!
+   rcc-ltdc-clk-on
    pllsai-clk-96-mhz ;
 : lcd-gpio-init ( -- )                   \ initialize all lcd gpio ports
    #14 LCD_R0 MODE-AF  #14 LCD_R1 MODE-AF  #14 LCD_R2 MODE-AF  #14 LCD_R3 MODE-AF
@@ -489,12 +489,15 @@ RK043FN48H_HEIGHT constant MAX_HEIGHT    \ maximum height
    $ff and swap $ff and #8 lshift or
    swap $ff and #16 lshift or
    LTDC_BCCR @ $ffffff bic or LTDC_BCCR ! ;
+: lcd-reg-update ( -- )                  \ update register settings
+   1 LTDC_SRCR bis! ;
 : lcd-init-polarity ( -- )               \ initialize polarity
    0 LTDC_GCR_HSPOL LTDC_GCR bits!
    0 LTDC_GCR_VSPOL LTDC_GCR bits!
    0 LTDC_GCR_DEPOL LTDC_GCR bits!
    0 LTDC_GCR_PCPOL LTDC_GCR bits! ;
 : lcd-display-init ( -- )                \ set display configuration
+   LTDC_GCR_LTDCEN LTDC_GCR bis!
    RK043FN48H_HSYNC 1- LTDC_SSR_HSW LTDC_SSR bits!
    RK043FN48H_VSYNC 1- LTDC_SSR_VSH LTDC_SSR bits!
 
@@ -511,22 +514,23 @@ RK043FN48H_HEIGHT constant MAX_HEIGHT    \ maximum height
    RK043FN48H_HBP + RK043FN48H_HFP + 1- LTDC_TWCR_TOTALW LTDC_TWCR bits!
    0 0 0 lcd-back-color!
    lcd-init-polarity
+   
    lcd-backlight-init lcd-backlight-on ;
 \ ***** lcd layer functions *************
 0   constant layer0
 $80 constant layer1
-: layer-base ( l -- offset )                 \ layer offset
+: layer-base ( l -- offset )                 \ layer base address
    0<> $80 and LTDC + 1-foldable ;
-: layer-base ( l -- offset )                 \ layer offset
+: layer-base ( l -- offset )                 \ layer base address
    LTDC + 1-foldable ;
 : lcd-layer-on  ( layer -- )                 \ turn on layer
    layer-base $84 + 1 swap bis! ;
 : lcd-layer-off  ( layer -- )                \ turn off layer
    layer-base $84 + 1 swap bic! ;
 : lcd-layer-color-key-ena ( l -- )           \ enable color key
-   layer-base $84 + 2 swap bis! ;
+   layer-base $84 + $2 swap bis! ;
 : lcd-layer-color-key-dis ( l -- )           \ disable color key
-   layer-base $84 + 2 swap bic! ;
+   layer-base $84 + $2 swap bic! ;
 : lcd-layer-color-lookup-table-ena ( l -- )  \ enable color lookup table
    layer-base $84 + $10 swap bis! ;
 : lcd-layer-color-lookup-table-dis ( l -- )  \ disable color lookup table
@@ -546,13 +550,13 @@ $80 constant layer1
 : lcd-layer-const-alpha! ( alpha layer -- )  \ set layer constant alpha
    layer-base $98 + $FF swap bits! ;
 : lcd-layer-default-color! ( c layer -- )    \ set layer default color ( argb8888 )
-   layer-base $9C + swap ! ;
+   layer-base $9C + ! ;
 : lcd-layer-blend-cfg! ( bf1 bf2 layer -- )  \ set layer blending function
    layer-base $a0 + -rot swap 8 lshift or swap ! ;
 : lcd-layer-fb-adr!  ( a layer -- )          \ set layer frame buffer start adr
-   layer-base $ac + swap ! ;
+   layer-base $ac + ! ;
 : lcd-layer-fb-adr@  ( layer -- a )          \ get layer frame buffer start adr
-   layer-base $ac + swap @ ;
+   layer-base $ac + @ ;
 : lcd-layer-fb-pitch! ( pitch layer -- )     \ set layer line distance in byte
    layer-base $B0 + $1FFF0000 swap bits! ;
 : lcd-layer-fb-line-length! ( ll layer -- )  \ set layer line length in byte
@@ -564,7 +568,8 @@ $80 constant layer1
    -rot $ff and #24 lshift                   \ shift index to pos [31..24]
    swap $ffffff and or                       \ cleanup color
    swap ! ;
-   
+
+\ setup a frame buffer   
 MAX_WIDTH MAX_HEIGHT * dup BUFFER: lcd-fb0-buffer constant lcd-fb0-size#
 lcd-fb0-buffer variable lcd-fb0              \ frame buffer 0 pointer
 lcd-fb0-size#  variable lcd-fb0-size         \ frame buffer 0 size
@@ -573,29 +578,33 @@ lcd-fb0-size#  variable lcd-fb0-size         \ frame buffer 0 size
    #256 0 do
      i dup dup #8 lshift or #8 lshift or
      i r@ lcd-layer-color-map
-   loop ;
+   loop Rdrop ;
    
-: fb-init-0-ff ( layer -- )                  \ fill frame buffer with values 0..255
+: fb-init-0-ff ( layer -- )              \ fill frame buffer with values 0..255
+   lcd-reg-update
    lcd-layer-fb-adr@
-   MAX_WIDTH MAX_HEIGHT * 0 do dup i + i swap c! loop ;
-: lcd-layer-0-init ( -- )
+   MAX_WIDTH MAX_HEIGHT * 0 do dup i + i swap c! loop drop ;
+: lcd-layer0-init ( -- )
    layer0 lcd-layer-off
    layer0 lcd-layer-color-lookup-table-ena
    0 layer0 lcd-layer-h-start!
    MAX_WIDTH  layer0 lcd-layer-h-end!
    0 layer0 lcd-layer-v-start!
-   MAX_HEIGHT layer0 lcd-layer-v-end!         \ vertical end / height
-   0 layer0 lcd-layer-key-color!              \ key color black no used here
-   #5 layer0 lcd-layer-pixel-format!          \ 8 bit per pixel frame buffer format
-   lcd-fb0 @ layer0 lcd-layer-fb-adr!         \ set frame buffer address
+   MAX_HEIGHT layer0 lcd-layer-v-end!    \ vertical end / height
+   0 layer0 lcd-layer-key-color!         \ key color black no used here
+   #5 layer0 lcd-layer-pixel-format!     \ 8 bit per pixel frame buffer format
+   lcd-fb0 @ layer0 lcd-layer-fb-adr!    \ set frame buffer address
    MAX_WIDTH layer0 lcd-layer-fb-pitch!
    MAX_WIDTH layer0 lcd-layer-fb-line-length!
    MAX_HEIGHT layer0 lcd-layer-num-lines!
    layer0 fb-init-0-ff
    layer0 lcd-layer-colormap-gray-scale
+   layer0 lcd-layer-on
+   0 layer0 lcd-layer-default-color!
+   lcd-reg-update
    ;
 : lcd-init  ( -- )                       \ pll-input frequency must be 1 MHz
    lcd-clk-init lcd-backlight-init
-   lcd-display-init lcd-gpio-init ;
+   lcd-display-init lcd-reg-update lcd-gpio-init lcd-disp-on ;
 : demo ( -- )
-   sys-clk-200-mhz lcd-init lcd-layer0-init ;
+   sys-clk-200-mhz lcd-init lcd-layer0-init lcd-reg-update lcd-backlight-on ;
