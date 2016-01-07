@@ -86,7 +86,15 @@ $24         constant GPIO_AFRH
    #2 over gpio-mode!
    tuck af-shift swap dup af-mask swap
    af-reg set-mask! ;
-
+: speed-mode ( speed pin -- )            \ set speed mode 0:low speed 1:medium 2:fast 3:high speed
+   tuck pin# 2* lshift
+   swap dup pin# 2* #3 swap lshift
+   swap port-base #8 + bits! ;
+: mode-af-speed ( af speed pin -- )      \ 
+   tuck speed-mode mode-af ;
+: mode-af-fast ( af pin -- )
+   #2 tuck mode-af-speed ;
+   
 \ ***** Flash read access config ********
 $40023C00      constant FLASH_ACR
 : flash-ws! ( n -- )                     \ set flash latency
@@ -469,18 +477,17 @@ RK043FN48H_HEIGHT constant MAX_HEIGHT    \ maximum height
    rcc-ltdc-clk-on
    pllsai-clk-96-mhz ;
 : lcd-gpio-init ( -- )                   \ initialize all lcd gpio ports
-\ TODO: fast mode
-   #14 LCD_R0 MODE-AF  #14 LCD_R1 MODE-AF  #14 LCD_R2 MODE-AF  #14 LCD_R3 MODE-AF
-   #14 LCD_R4 MODE-AF  #14 LCD_R4 MODE-AF  #14 LCD_R6 MODE-AF  #14 LCD_R7 MODE-AF
+   #14 LCD_R0 MODE-AF-FAST  #14 LCD_R1 MODE-AF-FAST  #14 LCD_R2 MODE-AF-FAST  #14 LCD_R3 MODE-AF-FAST
+   #14 LCD_R4 MODE-AF-FAST  #14 LCD_R4 MODE-AF-FAST  #14 LCD_R6 MODE-AF-FAST  #14 LCD_R7 MODE-AF-FAST
 
-   #14 LCD_G0 MODE-AF  #14 LCD_G1 MODE-AF  #14 LCD_G2 MODE-AF  #14 LCD_G3 MODE-AF
-   #14 LCD_G4 MODE-AF  #14 LCD_G5 MODE-AF  #14 LCD_G6 MODE-AF  #14 LCD_G7 MODE-AF
+   #14 LCD_G0 MODE-AF-FAST  #14 LCD_G1 MODE-AF-FAST  #14 LCD_G2 MODE-AF-FAST  #14 LCD_G3 MODE-AF-FAST
+   #14 LCD_G4 MODE-AF-FAST  #14 LCD_G5 MODE-AF-FAST  #14 LCD_G6 MODE-AF-FAST  #14 LCD_G7 MODE-AF-FAST
 
-   #14 LCD_B0 MODE-AF  #14 LCD_B1 MODE-AF  #14 LCD_B2 MODE-AF  #14 LCD_B3 MODE-AF
-    #9 LCD_B4 MODE-AF  #14 LCD_B5 MODE-AF  #14 LCD_B6 MODE-AF  #14 LCD_B7 MODE-AF
+   #14 LCD_B0 MODE-AF-FAST  #14 LCD_B1 MODE-AF-FAST  #14 LCD_B2 MODE-AF-FAST  #14 LCD_B3 MODE-AF-FAST
+    #9 LCD_B4 MODE-AF-FAST  #14 LCD_B5 MODE-AF-FAST  #14 LCD_B6 MODE-AF-FAST  #14 LCD_B7 MODE-AF-FAST
 
-   #14 LCD_VSYNC MODE-AF  #14 LCD_HSYNC MODE-AF
-   #14 LCD_CLK MODE-AF    #14 LCD_DE    MODE-AF
+   #14 LCD_VSYNC MODE-AF-FAST  #14 LCD_HSYNC MODE-AF-FAST
+   #14 LCD_CLK MODE-AF-FAST    #14 LCD_DE    MODE-AF-FAST
    01 LCD_DISP gpio-mode! ;
 : lcd-disp-on  ( -- )                    \ enable display
    LCD_DISP bsrr-on LCD_DISP port-base GPIO_BSRR + ! ;
