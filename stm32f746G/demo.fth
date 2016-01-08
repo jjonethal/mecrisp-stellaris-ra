@@ -93,7 +93,7 @@ $24         constant GPIO_AFRH
 : mode-af-speed ( af speed pin -- )      \ 
    tuck speed-mode mode-af ;
 : mode-af-fast ( af pin -- )
-   #2 tuck mode-af-speed ;
+   #2 swap mode-af-speed ;
    
 \ ***** Flash read access config ********
 $40023C00      constant FLASH_ACR
@@ -295,18 +295,18 @@ USART_BRR USART1_BASE + constant USART1_BRR
    PPRE/4 apb1-prescaler!                \ 50 MHz APB1
    pll-wait-stable clk-source-pll
    #115200 usart1-baud-update! ;
-: pllsai-clk-96-mhz ( -- )               \ 9.6 MHz pixel clock for RK043FN48H
+: pllsai-clk-192-mhz ( -- )              \ 9.6 MHz pixel clock for RK043FN48H
    pllsai-off
-   #96 pllsai-n!                         \ 96 mhz
-   #5  pllsai-r!                         \ 19.2 mhz
-   PLLSAI-DIVR/2 pllsai-divr!            \ 9.6 mhz PLLSAIDIVR = /2
+   #192 pllsai-n!                        \ 192 mhz
+   #5  pllsai-r!                         \ 38.4 mhz
+   PLLSAI-DIVR/4 pllsai-divr!            \ 9.6 mhz PLLSAIDIVR = /2
    pllsai-wait-stable ;
 
 \ ***** lcd definitions *****************
 $40016800        constant LTDC              \ LTDC base
-$08 LTDC +       constant LTDC_SSR          \ LTDC Synchronization Size Configuration Register
-$FFF #16 lshift  constant LTDC_SSR_HSW      \ Horizontal Synchronization Width  ( pixel-1 )
-$7FF             constant LTDC_SSR_VSH      \ Vertical   Synchronization Height ( pixel-1 )
+$08 LTDC +       constant LTDC_SSCR         \ LTDC Synchronization Size Configuration Register
+$FFF #16 lshift  constant LTDC_SSCR_HSW     \ Horizontal Synchronization Width  ( pixel-1 )
+$7FF             constant LTDC_SSCR_VSH     \ Vertical   Synchronization Height ( pixel-1 )
 $0C LTDC +       constant LTDC_BPCR         \ Back Porch Configuration Register
 $FFF #16 lshift  constant LTDC_BPCR_AHBP    \ HSYNC Width  + HBP - 1
 $7FF             constant LTDC_BPCR_AVBP    \ VSYNC Height + VBP - 1
@@ -358,10 +358,35 @@ $48 LTDC +       constant LTDC_CDSR         \ Current Display Status Register
 1 2 lshift       constant LTDC_CDSR_VSYNCS  \ Vertical Synchronization display Status
 1 1 lshift       constant LTDC_CDSR_HDES    \ Horizontal Data Enable display Status
 1                constant LTDC_CDSR_VDES    \ Vertical Data Enable display Status
-$84 LTDC +       constant LTDC_L1CR         \ Layerx Control Register
+$84 LTDC +       constant LTDC_L1CR         \ Layer1 Control Register
 1 4 lshift       constant LTDC_LxCR_CLUTEN  \ Color Look-Up Table Enable
 1 2 lshift       constant LTDC_LxCR_COLKEN  \ Color Keying Enable
 1                constant LTDC_LxCR_LEN     \ layer enable
+
+$88 LTDC +       constant LTDC_L1WHPCR      \ Layer1 Window Horizontal Position Configuration Register
+$8C LTDC +       constant LTDC_L1WVPCR      \ Layer1 Window Vertical Position Configuration Register
+$90 LTDC +       constant LTDC_L1CKCR       \ Layer1 Color Keying Configuration Register
+$94 LTDC +       constant LTDC_L1PFCR       \ Layer1 Pixel Format Configuration Register
+$98 LTDC +       constant LTDC_L1CACR       \ Layer1 Constant Alpha Configuration Register
+$9C LTDC +       constant LTDC_L1DCCR       \ Layer1 Default Color Configuration Register
+$A0 LTDC +       constant LTDC_L1BFCR       \ Layer1 Blending Factors Configuration Register
+$AC LTDC +       constant LTDC_L1CFBAR      \ Layer1 Color Frame Buffer Address Register
+$B0 LTDC +       constant LTDC_L1CFBLR      \ Layer1 Color Frame Buffer Length Register
+$B4 LTDC +       constant LTDC_L1CFBLNR     \ Layer1 ColorFrame Buffer Line Number Register
+$C4 LTDC +       constant LTDC_L1CLUTWR     \ Layer1 CLUT Write Register
+
+$84 LTDC + $80 + constant LTDC_L2CR         \ Layer2 Control Register
+$88 LTDC + $80 + constant LTDC_L2WHPCR      \ Layer2 Window Horizontal Position Configuration Register
+$8C LTDC + $80 + constant LTDC_L2WVPCR      \ Layer2 Window Vertical Position Configuration Register
+$90 LTDC + $80 + constant LTDC_L2CKCR       \ Layer2 Color Keying Configuration Register
+$94 LTDC + $80 + constant LTDC_L2PFCR       \ Layer2 Pixel Format Configuration Register
+$98 LTDC + $80 + constant LTDC_L2CACR       \ Layer2 Constant Alpha Configuration Register
+$9C LTDC + $80 + constant LTDC_L2DCCR       \ Layer2 Default Color Configuration Register
+$A0 LTDC + $80 + constant LTDC_L2BFCR       \ Layer2 Blending Factors Configuration Register
+$AC LTDC + $80 + constant LTDC_L2CFBAR      \ Layer2 Color Frame Buffer Address Register
+$B0 LTDC + $80 + constant LTDC_L2CFBLR      \ Layer2 Color Frame Buffer Length Register
+$B4 LTDC + $80 + constant LTDC_L2CFBLNR     \ Layer2 ColorFrame Buffer Line Number Register
+$C4 LTDC + $80 + constant LTDC_L2CLUTWR     \ Layer2 CLUT Write Register
 
 \ ***** lcd constants *******************
 #0 constant LCD-PF-ARGB8888              \ pixel format argb
@@ -475,10 +500,10 @@ RK043FN48H_HEIGHT constant MAX_HEIGHT    \ maximum height
    LCD_BL bsrr-off LCD_BL port-base GPIO_BSRR + ! ;
 : lcd-clk-init ( -- )                    \ enable 
    rcc-ltdc-clk-on
-   pllsai-clk-96-mhz ;
+   pllsai-clk-192-mhz ;
 : lcd-gpio-init ( -- )                   \ initialize all lcd gpio ports
    #14 LCD_R0 MODE-AF-FAST  #14 LCD_R1 MODE-AF-FAST  #14 LCD_R2 MODE-AF-FAST  #14 LCD_R3 MODE-AF-FAST
-   #14 LCD_R4 MODE-AF-FAST  #14 LCD_R4 MODE-AF-FAST  #14 LCD_R6 MODE-AF-FAST  #14 LCD_R7 MODE-AF-FAST
+   #14 LCD_R4 MODE-AF-FAST  #14 LCD_R5 MODE-AF-FAST  #14 LCD_R6 MODE-AF-FAST  #14 LCD_R7 MODE-AF-FAST
 
    #14 LCD_G0 MODE-AF-FAST  #14 LCD_G1 MODE-AF-FAST  #14 LCD_G2 MODE-AF-FAST  #14 LCD_G3 MODE-AF-FAST
    #14 LCD_G4 MODE-AF-FAST  #14 LCD_G5 MODE-AF-FAST  #14 LCD_G6 MODE-AF-FAST  #14 LCD_G7 MODE-AF-FAST
@@ -495,68 +520,55 @@ RK043FN48H_HEIGHT constant MAX_HEIGHT    \ maximum height
    LCD_DISP bsrr-off LCD_DISP port-base GPIO_BSRR + ! ;
 : lcd-back-color! ( r g b -- )           \ lcd background color
    $ff and swap $ff and #8 lshift or
-   swap $ff and #16 lshift or
-   LTDC_BCCR @ $ffffff bic or LTDC_BCCR ! ;
+   swap $ff and #16 lshift or LTDC_BCCR ! ;
 : lcd-reg-update ( -- )                  \ update register settings
    1 LTDC_SRCR bis! ;
-: lcd-init-polarity ( -- )               \ initialize polarity
-   0 LTDC_GCR_HSPOL LTDC_GCR bits!
-   0 LTDC_GCR_VSPOL LTDC_GCR bits!
-   0 LTDC_GCR_DEPOL LTDC_GCR bits!
-   0 LTDC_GCR_PCPOL LTDC_GCR bits! ;
 : lcd-display-init ( -- )                \ set display configuration
    LTDC_GCR_LTDCEN LTDC_GCR bis!
-   RK043FN48H_HSYNC 1- LTDC_SSR_HSW LTDC_SSR bits!
-   RK043FN48H_VSYNC 1- LTDC_SSR_VSH LTDC_SSR bits!
+   RK043FN48H_HSYNC 1- #16 lshift
+   RK043FN48H_VSYNC 1- or LTDC_SSCR !
 
-   RK043FN48H_HSYNC RK043FN48H_HBP + 1- LTDC_BPCR_AHBP LTDC_BPCR bits!
-   RK043FN48H_VSYNC RK043FN48H_VBP + 1- LTDC_BPCR_AVBP LTDC_BPCR bits!
+   RK043FN48H_HSYNC RK043FN48H_HBP + 1- #16 lshift
+   RK043FN48H_VSYNC RK043FN48H_VBP + 1- or LTDC_BPCR !
 
-   RK043FN48H_WIDTH  RK043FN48H_HSYNC + RK043FN48H_HBP + 1- LTDC_AWCR_AAW LTDC_AWCR bits!
-   RK043FN48H_HEIGHT RK043FN48H_VSYNC + RK043FN48H_VBP + 1- LTDC_AWCR_AAH LTDC_AWCR bits!
-
-   RK043FN48H_HEIGHT RK043FN48H_VSYNC +
-   RK043FN48H_VBP + RK043FN48H_VFP + 1- LTDC_TWCR_TOTALH LTDC_TWCR bits!
+   RK043FN48H_WIDTH  RK043FN48H_HSYNC + RK043FN48H_HBP + 1- #16 lshift
+   RK043FN48H_HEIGHT RK043FN48H_VSYNC + RK043FN48H_VBP + 1- or LTDC_AWCR !
 
    RK043FN48H_WIDTH RK043FN48H_HSYNC +
-   RK043FN48H_HBP + RK043FN48H_HFP + 1- LTDC_TWCR_TOTALW LTDC_TWCR bits!
-   0 0 0 lcd-back-color!
-   lcd-init-polarity
+   RK043FN48H_HBP + RK043FN48H_HFP + 1- #16 lshift
+   RK043FN48H_HEIGHT RK043FN48H_VSYNC +
+   RK043FN48H_VBP + RK043FN48H_VFP + 1- or LTDC_TWCR !
+
+   0 0 0 lcd-back-color!                 \ black back ground
+   1 LTDC_GCR !                          \ LTDCEN LCD-TFT controller enable
    
    lcd-backlight-init lcd-backlight-on ;
 \ ***** lcd layer functions *************
-0   constant layer0
-$80 constant layer1
+0   constant layer1
+$80 constant layer2
+$10 constant LTDC_LxCR_CLUTEN                \ Color Look-Up Table Enable
+ $2 constant LTDC_LxCR_COLKEN                \ Color Keying Enable
+ $1 constant LTDC_LxCR_LEN                   \ layer enable
 : layer-base ( l -- offset )                 \ layer base address
    0<> $80 and LTDC + 1-foldable ;
 : layer-base ( l -- offset )                 \ layer base address
    LTDC + 1-foldable ;
-: lcd-layer-on  ( layer -- )                 \ turn on layer
-   layer-base $84 + 1 swap bis! ;
-: lcd-layer-off  ( layer -- )                \ turn off layer
-   layer-base $84 + 1 swap bic! ;
-: lcd-layer-color-key-ena ( l -- )           \ enable color key
-   layer-base $84 + $2 swap bis! ;
-: lcd-layer-color-key-dis ( l -- )           \ disable color key
-   layer-base $84 + $2 swap bic! ;
-: lcd-layer-color-lookup-table-ena ( l -- )  \ enable color lookup table
-   layer-base $84 + $10 swap bis! ;
-: lcd-layer-color-lookup-table-dis ( l -- )  \ disable color lookup table
-   layer-base $84 + $10 swap bic! ;
-: lcd-layer-h-start! ( start layer -- )      \ set layer window start position
-   layer-base $88 + $FFF swap bits! ;
-: lcd-layer-h-end!  ( end layer -- )         \ set layer window end position
-   layer-base $88 + $FFF0000 swap bits! ;
-: lcd-layer-v-start! ( start layer -- )      \ set layer window vertical start
-   layer-base $8C + $7ff swap bits! ;
-: lcd-layer-v-end! ( end layer -- )          \ set layer window vertical end
-   layer-base $8C + $7ff0000 swap bits! ;
+: lcd-layer-on!  ( lcfg layer -- )           \ set layer control register
+   layer-base $84 + swap 1 or swap ! ;
+: lcd-layer-off  ( layer -- )                \ set layer off
+   layer-base $84 + 0 swap ! ;
+: lcd-layer-h-pos! ( start end layer -- )    \ set layer window horizontal position
+   layer-base $88 +
+   -rot #16 lshift or swap ! ;
+: lcd-layer-v-pos! ( start end layer -- )    \ set layer window vertical position
+   layer-base $8C +
+   -rot #16 lshift or swap ! ;
 : lcd-layer-key-color! ( color layer -- )    \ set layer color keying color
-   layer-base $90 + $ffffff swap bits! ;
+   layer-base $90 + ! ;
 : lcd-layer-pixel-format! ( fmt layer -- )   \ set layer pixel format
-   layer-base $94 + $7 swap bits! ;
+   layer-base $94 + ! ;
 : lcd-layer-const-alpha! ( alpha layer -- )  \ set layer constant alpha
-   layer-base $98 + $FF swap bits! ;
+   layer-base $98 + ! ;
 : lcd-layer-default-color! ( c layer -- )    \ set layer default color ( argb8888 )
    layer-base $9C + ! ;
 : lcd-layer-blend-cfg! ( bf1 bf2 layer -- )  \ set layer blending function
@@ -565,12 +577,12 @@ $80 constant layer1
    layer-base $ac + ! ;
 : lcd-layer-fb-adr@  ( layer -- a )          \ get layer frame buffer start adr
    layer-base $ac + @ ;
-: lcd-layer-fb-pitch! ( pitch layer -- )     \ set layer line distance in byte
-   layer-base $B0 + $1FFF0000 swap bits! ;
-: lcd-layer-fb-line-length! ( ll layer -- )  \ set layer line length in byte
-   layer-base $B0 + $1FFF swap bits! ;
+: lcd-layer-fb-line-length! ( len layer -- ) \ set layer line length in byte
+   layer-base $B0 +
+   swap dup #16 lshift
+   swap 3 + or swap ! ;
 : lcd-layer-num-lines! ( lines layer -- )    \ set layer number of lines to buffer
-   layer-base $b4 + $7ff swap bits! ;
+   layer-base $b4 + ! ;
 : lcd-layer-color-map ( c i l -- )           \ set layer color at map index
    layer-base $c4 +
    -rot $ff and #24 lshift                   \ shift index to pos [31..24]
@@ -592,27 +604,82 @@ lcd-fb0-size#  variable lcd-fb0-size         \ frame buffer 0 size
    lcd-reg-update
    lcd-layer-fb-adr@
    MAX_WIDTH MAX_HEIGHT * 0 do dup i + i swap c! loop drop ;
-: lcd-layer0-init ( -- )
-   layer0 lcd-layer-off
-   layer0 lcd-layer-color-lookup-table-ena
-   0 layer0 lcd-layer-h-start!
-   MAX_WIDTH  layer0 lcd-layer-h-end!
-   0 layer0 lcd-layer-v-start!
-   MAX_HEIGHT layer0 lcd-layer-v-end!    \ vertical end / height
-   0 layer0 lcd-layer-key-color!         \ key color black no used here
-   #5 layer0 lcd-layer-pixel-format!     \ 8 bit per pixel frame buffer format
-   lcd-fb0 @ layer0 lcd-layer-fb-adr!    \ set frame buffer address
-   MAX_WIDTH layer0 lcd-layer-fb-pitch!
-   MAX_WIDTH layer0 lcd-layer-fb-line-length!
-   MAX_HEIGHT layer0 lcd-layer-num-lines!
-   layer0 fb-init-0-ff
-   layer0 lcd-layer-colormap-gray-scale
-   layer0 lcd-layer-on
-   0 layer0 lcd-layer-default-color!
+
+RK043FN48H_HSYNC RK043FN48H_HBP +       constant L0-h-start
+L0-h-start       RK043FN48H_WIDTH + 1-  constant L0-h-end
+RK043FN48H_VSYNC RK043FN48H_VBP +       constant L0-v-start
+L0-v-start       RK043FN48H_HEIGHT + 1- constant L0-v-end
+
+
+: lcd-layer1-init ( -- )
+   layer1 lcd-layer-off
+   L0-h-start L0-h-end layer1 lcd-layer-h-pos!
+   L0-v-start L0-v-end layer1 lcd-layer-v-pos!
+   0 layer1 lcd-layer-key-color!         \ key color black no used here
+   #5 layer1 lcd-layer-pixel-format!     \ 8 bit per pixel frame buffer format
+   lcd-fb0 @ layer1 lcd-layer-fb-adr!    \ set frame buffer address
+   MAX_WIDTH layer1 lcd-layer-fb-line-length!
+   MAX_HEIGHT layer1 lcd-layer-num-lines!
+   layer1 fb-init-0-ff
+   layer1 lcd-layer-colormap-gray-scale
+   LTDC_LxCR_CLUTEN layer1 lcd-layer-on!
+   0 layer1 lcd-layer-default-color!
    lcd-reg-update
    ;
 : lcd-init  ( -- )                       \ pll-input frequency must be 1 MHz
    lcd-clk-init lcd-backlight-init
    lcd-display-init lcd-reg-update lcd-gpio-init lcd-disp-on ;
 : demo ( -- )
-   sys-clk-200-mhz lcd-init lcd-layer0-init lcd-reg-update lcd-backlight-on ;
+   sys-clk-200-mhz lcd-init lcd-layer1-init lcd-reg-update lcd-backlight-on ;
+: >token ( a -- a )                      \ retrieve token name for cfa
+   1- dup c@ 0= +                        \ skip padding 
+   #256 1 do 1- dup c@ i = if leave then loop ;
+: ctype.n ( width a -- )                 \ ctype with width
+   dup ctype c@ - spaces ;
+: x.8 ( n -- )                           \ hex output 8 digits
+   base @ hex swap u.8 base ! ;
+: const. ( a -- )                        \ dump register constant
+   cr dup >token #15 swap ctype.n
+   execute dup x.8 space @ x.8 ;
+: 'reg. ( -- ) ( n:constant )            \ dump next word as register constant 
+   postpone ['] postpone const. immediate ; 
+: lcd. ( -- )
+  'reg. LTDC_SSCR
+  'reg. LTDC_BPCR
+  'reg. LTDC_AWCR
+  'reg. LTDC_TWCR
+  'reg. LTDC_GCR
+  'reg. LTDC_SRCR
+  'reg. LTDC_BCCR
+  'reg. LTDC_IER
+  'reg. LTDC_ISR
+  'reg. LTDC_ICR
+  'reg. LTDC_LIPCR
+  'reg. LTDC_CPSR
+  'reg. LTDC_CDSR cr ;
+: lcd-l1.  ( -- )
+  'reg. LTDC_L1CR
+  'reg. LTDC_L1WHPCR
+  'reg. LTDC_L1WVPCR
+  'reg. LTDC_L1CKCR
+  'reg. LTDC_L1PFCR
+  'reg. LTDC_L1CACR
+  'reg. LTDC_L1DCCR
+  'reg. LTDC_L1BFCR
+  'reg. LTDC_L1CFBAR
+  'reg. LTDC_L1CFBLR
+  'reg. LTDC_L1CFBLNR
+  'reg. LTDC_L1CLUTWR cr ;
+: lcd-l2.  ( -- )  
+  'reg. LTDC_L2CR
+  'reg. LTDC_L2WHPCR
+  'reg. LTDC_L2WVPCR
+  'reg. LTDC_L2CKCR
+  'reg. LTDC_L2PFCR
+  'reg. LTDC_L2CACR
+  'reg. LTDC_L2DCCR
+  'reg. LTDC_L2BFCR
+  'reg. LTDC_L2CFBAR
+  'reg. LTDC_L2CFBLR
+  'reg. LTDC_L2CFBLNR
+  'reg. LTDC_L2CLUTWR cr ;
