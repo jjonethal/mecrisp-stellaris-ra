@@ -38,9 +38,14 @@
 $40020000 constant GPIO-BASE
 : gpio ( n -- adr )
    $f and #10 lshift GPIO-BASE or 1-foldable ;
+$00         constant GPIO_MODER
 $04         constant GPIO_OTYPER
 $08         constant GPIO_OSPEEDR
+$0C         constant GPIO_PUPDR
+$10         constant GPIO_IDR
+$14         constant GPIO_ODR
 $18         constant GPIO_BSRR
+$1C         constant GPIO_LCKR
 $20         constant GPIO_AFRL
 $24         constant GPIO_AFRH
 
@@ -84,16 +89,12 @@ $24         constant GPIO_AFRH
    mode-mask swap port-base set-mask! ;
 : mode-af ( af pin -- )
    #2 over gpio-mode!
-   tuck af-shift swap dup af-mask swap
-   af-reg set-mask! ;
+   dup af-mask swap af-reg bits! ;
 : speed-mode ( speed pin -- )            \ set speed mode 0:low speed 1:medium 2:fast 3:high speed
-   tuck pin# 2* lshift
-   swap dup pin# 2* #3 swap lshift
+   dup pin# 2* #3 swap lshift
    swap port-base #8 + bits! ;
-: mode-af-speed ( af speed pin -- )      \ 
-   tuck speed-mode mode-af ;
 : mode-af-fast ( af pin -- )
-   #2 swap mode-af-speed ;
+   #2 over speed-mode mode-af ;
    
 \ ***** Flash read access config ********
 $40023C00      constant FLASH_ACR
@@ -683,3 +684,38 @@ L0-v-start       RK043FN48H_HEIGHT + 1- constant L0-v-end
   'reg. LTDC_L2CFBLR
   'reg. LTDC_L2CFBLNR
   'reg. LTDC_L2CLUTWR cr ;
+: gpiox. ( base -- base )
+  dup ." GPIO" port# [char] A + emit [char] _ emit ; 
+: gpio. ( base -- )
+  dup cr ." PIN " $f and . cr
+  port-base
+  cr dup gpiox. ." MODER   " GPIO_MODER + @ x.8
+  cr dup gpiox. ." OTYPER  " GPIO_OTYPER + @ x.8
+  cr dup gpiox. ." OSPEEDR " GPIO_OSPEEDR + @ x.8
+  cr dup gpiox. ." PUPDR   " GPIO_PUPDR + @ x.8
+  cr dup gpiox. ." IDR     " GPIO_IDR + @ x.8
+  cr dup gpiox. ." ODR     " GPIO_ODR + @ x.8
+  cr dup gpiox. ." BSRR    " GPIO_BSRR + @ x.8
+  cr dup gpiox. ." LCKR    " GPIO_LCKR + @ x.8
+  cr dup gpiox. ." AFRL    " GPIO_AFRL + @ x.8
+  cr     gpiox. ." AFRH    " GPIO_AFRH + @ x.8 cr ;
+
+: vfade ( -- )                           \ vertical fade test
+  lcd-fb0 @
+  MAX_HEIGHT 0  do  MAX_WIDTH 0  do  j over c! 1+  loop  loop  drop ;
+: clear ( -- )                           \ fill with 0
+   lcd-fb0 @ dup MAX_HEIGHT MAX_WIDTH * + swap do 0 i ! #4 +loop ;
+: fill ( c -- )                          \ fill sceen with color
+   dup #8 lshift or dup #16 lshift or
+   lcd-fb0 @ dup MAX_HEIGHT MAX_WIDTH * + swap do dup i ! #4 +loop drop ;
+: set-pixel ( c x y -- )                 \ set pixel color
+   MAX_WIDTH * + lcd-fb0 @ + c! ;
+: extend-color ( c -- w )
+   dup #8 lshift or dup #16 lshift or ;
+: hline ( c l x1 y1 -- )                 \ draw horizontal line
+   MAX_WIDTH * + lcd-fb0 @ + tuck + swap rot 
+   dup #8 lshift or dup #16 lshift or -rot  \ extend color
+   do dup i ! #4 +loop  drop ;
+   
+   
+   
