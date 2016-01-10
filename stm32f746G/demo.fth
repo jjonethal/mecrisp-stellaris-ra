@@ -632,10 +632,10 @@ L0-v-start       RK043FN48H_HEIGHT + 1- constant L0-v-end
    lcd-display-init lcd-reg-update lcd-gpio-init lcd-disp-on ;
 : demo ( -- )
    sys-clk-200-mhz lcd-init lcd-layer1-init lcd-reg-update lcd-backlight-on ;
-: >token ( a -- a )                      \ retrieve token name for cfa
-   1- dup c@ 0= +                        \ skip padding 
-   #256 1 do 1- dup c@ i = if leave then loop ;
-: ctype.n ( width a -- )                 \ ctype with width
+: >token ( a -- a )                      \ retrieve token name address for cfa
+   1- dup c@ 0= +                        \ skip the padding zero 
+   #256 1 do 1- dup c@ i = if leave then loop ; \ backtrack to start of counted string
+: ctype.n ( width a -- )                 \ output counted string with fixed width
    dup ctype c@ - spaces ;
 : x.8 ( n -- )                           \ hex output 8 digits
    base @ hex swap u.8 base ! ;
@@ -644,7 +644,7 @@ L0-v-start       RK043FN48H_HEIGHT + 1- constant L0-v-end
    execute dup x.8 space @ x.8 ;
 : 'reg. ( -- ) ( n:constant )            \ dump next word as register constant 
    postpone ['] postpone const. immediate ; 
-: lcd. ( -- )
+: lcd. ( -- )                            \ dump lcd registers
   'reg. LTDC_SSCR
   'reg. LTDC_BPCR
   'reg. LTDC_AWCR
@@ -658,7 +658,7 @@ L0-v-start       RK043FN48H_HEIGHT + 1- constant L0-v-end
   'reg. LTDC_LIPCR
   'reg. LTDC_CPSR
   'reg. LTDC_CDSR cr ;
-: lcd-l1.  ( -- )
+: lcd-l1.  ( -- )                         \ dump lcd layer1 registers
   'reg. LTDC_L1CR
   'reg. LTDC_L1WHPCR
   'reg. LTDC_L1WVPCR
@@ -684,9 +684,9 @@ L0-v-start       RK043FN48H_HEIGHT + 1- constant L0-v-end
   'reg. LTDC_L2CFBLR
   'reg. LTDC_L2CFBLNR
   'reg. LTDC_L2CLUTWR cr ;
-: gpiox. ( base -- base )
+: gpiox. ( base -- base )                \ output string "gpio[a..x]_"
   dup ." GPIO" port# [char] A + emit [char] _ emit ; 
-: gpio. ( base -- )
+: gpio. ( pin -- )                       \ dump gpio port settings for pin
   dup cr ." PIN " $f and . cr
   port-base
   cr dup gpiox. ." MODER   " GPIO_MODER + @ x.8
@@ -716,6 +716,4 @@ L0-v-start       RK043FN48H_HEIGHT + 1- constant L0-v-end
    MAX_WIDTH * + lcd-fb0 @ + tuck + swap rot 
    dup #8 lshift or dup #16 lshift or -rot  \ extend color
    do dup i ! #4 +loop  drop ;
-   
-   
-   
+
