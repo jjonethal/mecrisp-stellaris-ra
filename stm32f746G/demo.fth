@@ -708,12 +708,84 @@ L0-v-start       RK043FN48H_HEIGHT + 1- constant L0-v-end
 : fill ( c -- )                          \ fill sceen with color
    dup #8 lshift or dup #16 lshift or
    lcd-fb0 @ dup MAX_HEIGHT MAX_WIDTH * + swap do dup i ! #4 +loop drop ;
-: set-pixel ( c x y -- )                 \ set pixel color
-   MAX_WIDTH * + lcd-fb0 @ + c! ;
-: extend-color ( c -- w )
-   dup #8 lshift or dup #16 lshift or ;
-: hline ( c l x1 y1 -- )                 \ draw horizontal line
-   MAX_WIDTH * + lcd-fb0 @ + tuck + swap rot 
-   dup #8 lshift or dup #16 lshift or -rot  \ extend color
-   do dup i ! #4 +loop  drop ;
+0 variable l1-x
+0 variable l1-y
+0 variable l1-c
+: draw-pixel ( -- )                      \ draw pixel with current color
+   l1-c @ l1-y @ MAX_WIDTH * l1-x @ + lcd-fb0 @ + c! ;
+: l1-x++ ( -- )
+   l1-x @ dup MAX_WIDTH 1- < - l1-x ! ;
+: l1-x-- ( -- )
+   l1-x @ dup 1 >= + l1-x ! ;
+: l1-y++ ( -- )
+   l1-y @ dup MAX_HEIGHT 1- < - l1-y ! ;
+: l1-y-- ( -- )
+   l1-y @ dup 1 >= + l1-y ! ;
+: hline  ( l -- )                        \ draw horizontal line
+   dup 0<
+   if negate 0 do draw-pixel l1-x-- loop
+   else      0 do draw-pixel l1-x++ loop then ;
+: vline  ( h -- )                        \ draw vertical line
+   dup 0<
+   if negate 0 ?do draw-pixel l1-y-- loop
+   else      0 ?do draw-pixel l1-y++ loop then ;
+: rect ( w h -- )                        \ draw a rectangle
+  over hline
+  dup vline
+  swap negate hline
+  negate vline ;
+0 variable x-alt
+0 variable x-neu
+0 variable x-sum
+0 variable y-alt
+0 variable y-neu
+0 variable y-sum
 
+0 variable dy
+0 variable dx
+0 variable xinc
+0 variable yinc
+
+: line-x>=y
+  0 x-alt !
+  dx @ x-neu !
+  0 y-sum !
+  0 yinc !
+  dx @ 1+ 0 do
+   draw-pixel
+   l1-x++
+   y-sum @ dy @ + y-sum !
+   y-sum @ x-neu @ >= if dx @ x-alt +! dx @ x-neu +! 1 yinc ! then
+   y-sum @ x-alt @ - x-neu @ y-sum @ - >= if yinc @ l1-y +! 0 yinc ! then
+  loop ;
+
+: line-x>=y
+  0 x-alt !
+  dx @ x-neu !
+  0 y-sum !
+  dx @ 0 do
+   draw-pixel
+   xinc @ l1-x +!
+   dy @ y-sum +!
+   y-sum @ x-neu @ >= if dx @ x-alt +! dx @ x-neu +! yinc @ l1-y +! then
+  loop draw-pixel ;
+
+
+: line-y>=x  ( -- )                      \ line for dy >= dx
+  0 y-alt !
+  dy @ y-neu !
+  0 x-sum !
+  dy @ 0 do
+   draw-pixel
+   yinc @ l1-y +!
+   dx @ x-sum @ +!
+   x-sum @ y-neu @ >= if dy @ y-alt +! dy @ y-neu +! xinc l1-x +! then
+  loop draw-pixel ;
+: line  ( dx dy -- )                       \ line relative dx, dy
+   1 xinc !
+   1 yinc !
+   dup 0< if -1 yinc ! negate then swap
+   dup 0< if -1 xinc ! negate then swap
+   2dup dy ! dx !
+   >= if line-x>=y else
+         line-y>=x then ;
