@@ -759,7 +759,7 @@ L0-v-start       RK043FN48H_HEIGHT + 1- constant L0-v-end
    y-sum @ x-alt @ - x-neu @ y-sum @ - >= if yinc @ l1-y +! 0 yinc ! then
   loop ;
 
-: line-x>=y
+: line-x>=y  ( -- )                    \ line for dx >= dy
   0 x-alt !
   dx @ x-neu !
   0 y-sum !
@@ -789,3 +789,13 @@ L0-v-start       RK043FN48H_HEIGHT + 1- constant L0-v-end
    2dup dy ! dx !
    >= if line-x>=y else
          line-y>=x then ;
+: nics-home ( -- )                       \ draw saint nicolaus home
+  0 fill 0 l1-x ! 0 l1-y !
+   100    0 line 
+  -100  100 line
+   100    0 line
+   -50   30 line
+   -50  -30 line
+     0 -100 line
+   100  100 line
+     0 -100 line ;
