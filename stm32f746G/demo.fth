@@ -32,6 +32,10 @@
                                          \ #400 $7FC0 RCC_PLLCFGR bits!
                                          \ $1FF #6 lshift constant PLLN
                                          \ #400 PLLN RCC_PLLCFGR bits!
+: x.8 ( n -- )                           \ hex output 8 digits
+   base @ hex swap u.8 base ! ;
+: x.2 ( n -- )                           \ hex output 2 digits
+   base @ hex swap 0 <# # # #> type base ! ;
 
 \ ***** gpio definitions ****************
 \ http://www.st.com/web/en/resource/technical/document/reference_manual/DM00124865.pdf#page=195&zoom=auto,67,755
@@ -600,6 +604,27 @@ lcd-fb0-size#  variable lcd-fb0-size         \ frame buffer 0 size
      i dup dup #8 lshift or #8 lshift or
      i r@ lcd-layer-color-map
    loop Rdrop ;
+: red-884 ( i -- c )                         \ calc red component for 8-8-4 palette
+   $e0 and #5 rshift
+   #255 * #3 + #7 /
+   #16 lshift ;
+: green-884 ( i -- c )                       \ green component for 8-8-4 palette
+   $1C and #2 rshift
+   #255 * #3 + #7 /
+   #8 lshift ;
+: blue-884 ( i -- c )                        \ blue component for 8-8-4 palette
+   $3 and
+   #255 * 1 + 3 / ;
+   
+: lcd-layer-color-map-8-8-4 ( layer -- )     \ colormap 8 level red 8 green 4 blue
+   >R
+  256 0 do
+    i dup red-884                            \ red
+    over  green-884 or                       \ green
+    over  blue-884 or                        \ blue
+    swap R@ lcd-layer-color-map
+    lcd-reg-update
+  loop rdrop ;
    
 : fb-init-0-ff ( layer -- )              \ fill frame buffer with values 0..255
    lcd-reg-update
@@ -622,7 +647,7 @@ L0-v-start       RK043FN48H_HEIGHT + 1- constant L0-v-end
    MAX_WIDTH layer1 lcd-layer-fb-line-length!
    MAX_HEIGHT layer1 lcd-layer-num-lines!
    layer1 fb-init-0-ff
-   layer1 lcd-layer-colormap-gray-scale
+   layer1 lcd-layer-color-map-8-8-4
    LTDC_LxCR_CLUTEN layer1 lcd-layer-on!
    0 layer1 lcd-layer-default-color!
    lcd-reg-update
@@ -637,8 +662,6 @@ L0-v-start       RK043FN48H_HEIGHT + 1- constant L0-v-end
    #256 1 do 1- dup c@ i = if leave then loop ; \ backtrack to start of counted string
 : ctype.n ( width a -- )                 \ output counted string with fixed width
    dup ctype c@ - spaces ;
-: x.8 ( n -- )                           \ hex output 8 digits
-   base @ hex swap u.8 base ! ;
 : const. ( a -- )                        \ dump register constant
    cr dup >token #15 swap ctype.n
    execute dup x.8 space @ x.8 ;
@@ -708,11 +731,19 @@ L0-v-start       RK043FN48H_HEIGHT + 1- constant L0-v-end
 : fill ( c -- )                          \ fill sceen with color
    dup #8 lshift or dup #16 lshift or
    lcd-fb0 @ dup MAX_HEIGHT MAX_WIDTH * + swap do dup i ! #4 +loop drop ;
-0 variable l1-x
-0 variable l1-y
-0 variable l1-c
+0 variable l1-x                          \ graphics x-pos
+0 variable l1-y                          \ graphics y-pos
+0 variable l1-c                          \ forground color
+0 variable l1-c4                         \ cccc
+0 variable l1-bg                         \ background color
+0 variable l1-bg4                        \ bcbcbcbc 4xbackground color
+: y-limit ( y -- y )                     \ limit y
+   0 max MAX_HEIGHT 1- min ;    
+: x-limit ( y -- y )                     \ limit y
+   0 max MAX_WIDTH 1- min ;    
 : draw-pixel ( -- )                      \ draw pixel with current color
-   l1-c @ l1-y @ MAX_WIDTH * l1-x @ + lcd-fb0 @ + c! ;
+   l1-c @ l1-y @ y-limit MAX_WIDTH *
+   l1-x @ x-limit + lcd-fb0 @ + c! ;
 : l1-x++ ( -- )
    l1-x @ dup MAX_WIDTH 1- < - l1-x ! ;
 : l1-x-- ( -- )
@@ -734,6 +765,7 @@ L0-v-start       RK043FN48H_HEIGHT + 1- constant L0-v-end
   dup vline
   swap negate hline
   negate vline ;
+
 0 variable x-alt
 0 variable x-neu
 0 variable x-sum
@@ -746,7 +778,7 @@ L0-v-start       RK043FN48H_HEIGHT + 1- constant L0-v-end
 0 variable xinc
 0 variable yinc
 
-: line-x>=y
+: line-x>=y-test  ( -- )                 \ line drawing with rounding test
   0 x-alt !
   dx @ x-neu !
   0 y-sum !
@@ -759,7 +791,7 @@ L0-v-start       RK043FN48H_HEIGHT + 1- constant L0-v-end
    y-sum @ x-alt @ - x-neu @ y-sum @ - >= if yinc @ l1-y +! 0 yinc ! then
   loop ;
 
-: line-x>=y  ( -- )                    \ line for dx >= dy
+: line-x>=y  ( -- )                      \ line for dx >= dy
   0 x-alt !
   dx @ x-neu !
   0 y-sum !
@@ -769,8 +801,6 @@ L0-v-start       RK043FN48H_HEIGHT + 1- constant L0-v-end
    dy @ y-sum +!
    y-sum @ x-neu @ >= if dx @ x-alt +! dx @ x-neu +! yinc @ l1-y +! then
   loop draw-pixel ;
-
-
 : line-y>=x  ( -- )                      \ line for dy >= dx
   0 y-alt !
   dy @ y-neu !
@@ -778,10 +808,10 @@ L0-v-start       RK043FN48H_HEIGHT + 1- constant L0-v-end
   dy @ 0 do
    draw-pixel
    yinc @ l1-y +!
-   dx @ x-sum @ +!
-   x-sum @ y-neu @ >= if dy @ y-alt +! dy @ y-neu +! xinc l1-x +! then
+   dx @ x-sum +!
+   x-sum @ y-neu @ >= if dy @ y-alt +! dy @ y-neu +! xinc @ l1-x +! then
   loop draw-pixel ;
-: line  ( dx dy -- )                       \ line relative dx, dy
+: line  ( dx dy -- )                     \ line relative dx, dy
    1 xinc !
    1 yinc !
    dup 0< if -1 yinc ! negate then swap
@@ -789,13 +819,117 @@ L0-v-start       RK043FN48H_HEIGHT + 1- constant L0-v-end
    2dup dy ! dx !
    >= if line-x>=y else
          line-y>=x then ;
+: color! ( c -- )
+   $ff and l1-c ! ;
+: move-to ( x y -- )                     \ move graphics cursor to
+   y-limit l1-y !
+   x-limit l1-x ! ;
+: move-by ( dx dy -- )                   \ move graphics cursor relative
+   l1-y @ + y-limit l1-y !
+   l1-x @ + x-limit l1-x ! ;
 : nics-home ( -- )                       \ draw saint nicolaus home
-  0 fill 0 l1-x ! 0 l1-y !
+  0 fill 0 0 move-to
    100    0 line 
   -100  100 line
    100    0 line
-   -50   30 line
-   -50  -30 line
+   -50   50 line
+   -50  -50 line
      0 -100 line
    100  100 line
      0 -100 line ;
+: hline-cx  ( l -- )                     \ hline constant x
+  l1-x @ swap hline l1-x ! ;
+: fill-rect ( w h -- )                   \ fill a rectangle
+   l1-y @ tuck + swap
+   do i l1-y ! dup hline-cx loop
+   drop ;
+0 variable vx
+0 variable vy
+0 variable fx
+0 variable fy
+
+: vsync? ( -- f )                        \ in vsync state ?
+   $4 LTDC_CDSR bit@ ;
+: wait-vsync ( -- )                      \ wait for vertical sync
+   begin vsync? not until
+   begin vsync?     until ;   
+: <0> ( n -- n )                         \ sign <0:-1, 0:0, >0:1
+   dup 0< swap 0 > negate or ;
+: mod-step ( a d -- m d )                \ modulo step (a<0): a+d, -1 (a>=d):a-d, 1 else a, 0
+   abs 2dup >=
+   if - 1
+   else over 0< if + -1 else drop 0 then
+   then ;
+\ : s vx @ abs vy @ abs > if vy @ fy +!
+0 variable idx  
+: idx++ ( -- )
+  idx @ 1+ $ff and idx ! ;
+: rgb>color ( r g b -- c )
+  $ff and swap $ff and 8 lshift or swap $ff and #16 lshift or ;
+: r-g-b-r ( -- )                         \ red green blue palette for color cycling, start at idx
+  #256 0 do #255 i - i 0 rgb>color idx @ layer1 lcd-layer-color-map idx++ 3 +loop
+  #256 0 do 0 #255 i - i rgb>color idx @ layer1 lcd-layer-color-map idx++ 3 +loop
+  #256 0 do i 0 #255 i - rgb>color idx @ layer1 lcd-layer-color-map idx++ 3 +loop ;
+
+: delay 0 do loop ;
+: palette-demo ( -- )                    \ color cycle palette
+   begin wait-vsync r-g-b-r key? until ;
+: palette-demo1 ( didx -- )              \ color cycle palette
+   begin wait-vsync r-g-b-r dup idx +! key? until drop ;
+: circle-test ( div -- )
+  MAX_HEIGHT 0
+  do
+    MAX_WIDTH  0
+    do
+      i l1-x ! j l1-y ! i MAX_WIDTH 2/ - dup * j MAX_HEIGHT 2/ - dup * + over / color! draw-pixel
+    loop
+  loop drop ;
+: circle-demo ( -- )
+  begin
+  150 1 do i circle-test 
+    wait-vsync r-g-b-r
+    key? if leave then
+  loop
+  150 1 do 150 i - circle-test 
+    wait-vsync r-g-b-r
+    key? if leave then
+  loop
+  key? until ;
+: n->bbbb ( n -- n )                     \ make byte mask from nibble $c->$FF00FF00
+  dup  $8 and #21 lshift
+  over $4 and #14 lshift or
+  over $2 and  #7 lshift or
+  swap  1 and            or
+  dup 2* or dup 2 lshift or ;
+(create) nibble-mask-tab
+   #0 n->bbbb ,  #1 n->bbbb ,  #2 n->bbbb ,  #3 n->bbbb ,
+   #4 n->bbbb ,  #5 n->bbbb ,  #6 n->bbbb ,  #7 n->bbbb ,
+   #8 n->bbbb ,  #9 n->bbbb , #10 n->bbbb , #11 n->bbbb ,
+  #12 n->bbbb , #13 n->bbbb , #14 n->bbbb , #15 n->bbbb , smudge
+' nibble-mask-tab constant nibble-mask-tab-adr   
+: pixel-4-mask ( n -- n )                \ cache table
+   2 lshift nibble-mask-tab-adr + @ 1-foldable ; 
+0 variable pixel-adr
+: b->bbbb ( -- )                         \ expand a byte to 4 byte 0xAB -> 0xABAB_ABAB
+   dup #8 lshift or dup #16 lshift or ;
+: pixel-line-4 ( n -- )                  \ draw 4 2-color pixel 1-forground 0 background
+   $f and pixel-4-mask dup negate l1-bg @ b->bbbb and
+   swap l1-c @ b->bbbb and or pixel-adr @ ! ;
+: pixel-line-2 ( n -- )                  \ draw 2 2-color pixel 1-forground 0 background
+   $3 and pixel-4-mask dup negate l1-bg @ b->bbbb and
+   swap l1-c @ b->bbbb and or pixel-adr @ 2 + h! ;
+: pixel-line-6-y++ ( n -- )              \ draw 6 2-color pixel in a line starting from pixel-adr
+   dup pixel-line-4                      \ update pixel adr to next line
+   4 rshift pixel-line-2
+   pixel-adr @ MAX_WIDTH + pixel-adr ! ; \ next line
+: draw-letter-6x8 ( a -- )
+   2@ dup pixel-line-6-y++
+   dup #6 rshift pixel-line-6-y++
+   dup #12 rshift pixel-line-6-y++
+   dup #18 rshift pixel-line-6-y++
+   dup #24 rshift pixel-line-6-y++
+   #30 rshift swap 2 lshift or
+   dup pixel-line-6-y++
+   dup #6 rshift pixel-line-6-y++
+      #12 rshift pixel-line-6-y++ ;
+
