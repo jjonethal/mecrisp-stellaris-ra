@@ -733,7 +733,8 @@ L0-v-start       RK043FN48H_HEIGHT + 1- constant L0-v-end
    lcd-fb0 @ dup MAX_HEIGHT MAX_WIDTH * + swap do dup i ! #4 +loop drop ;
 0 variable l1-x                          \ graphics x-pos
 0 variable l1-y                          \ graphics y-pos
-0 variable l1-c                          \ forground color
+0 variable l1-c                          \ color
+0 variable l1-fg                         \ forground color
 0 variable l1-c4                         \ cccc
 0 variable l1-bg                         \ background color
 0 variable l1-bg4                        \ bcbcbcbc 4xbackground color
@@ -843,6 +844,8 @@ L0-v-start       RK043FN48H_HEIGHT + 1- constant L0-v-end
    l1-y @ tuck + swap
    do i l1-y ! dup hline-cx loop
    drop ;
+: fill-rect-bg ( w h -- )
+  l1-c @ -rot l1-bg @ l1-c ! fill-rect l1-c ! ; 
 0 variable vx
 0 variable vy
 0 variable fx
@@ -932,4 +935,60 @@ L0-v-start       RK043FN48H_HEIGHT + 1- constant L0-v-end
    dup pixel-line-6-y++
    dup #6 rshift pixel-line-6-y++
       #12 rshift pixel-line-6-y++ ;
-
+MAX_HEIGHT 8 2 + / constant grid-space   \ grid space for 6x8 raster
+grid-space 1 -     constant grid-fill    \ fill width of grid
+MAX_WIDTH  grid-space 6 * - 2/ constant grid-h-start
+MAX_HEIGHT grid-space 8 * - 2/ constant grid-v-start
+grid-space 8 * constant grid-v-length
+grid-space 6 * constant grid-h-length
+: draw-raster-h-grid ( -- )              \ draw vertical lines of raster - horizontal grid
+   grid-h-start grid-space 6 * 1+ +
+   grid-h-start
+   do
+     grid-v-start l1-y ! i l1-x ! grid-v-length vline
+   grid-space +loop ;
+: draw-raster-v-grid ( -- )              \ draw horizontal lines of raster - vertical grid
+   grid-v-start grid-space 8 * 1+ + 
+   grid-v-start
+   do
+     i l1-y ! grid-h-start l1-x ! grid-h-length hline
+   grid-space +loop ;
+   
+: draw-raster-6x8 ( -- )                 \ draw a 6x8 raster
+   draw-raster-h-grid
+   draw-raster-v-grid ;
+0 variable raster-pixel-x
+0 variable raster-pixel-y
+: pixel-coord ( -- )                     \ update-pixel-coordinates
+   raster-pixel-x @ grid-space * grid-h-start + 1+ l1-x !
+   raster-pixel-y @ grid-space * grid-v-start + 1+ l1-y !
+   raster-pixel-x @ 1+ dup 5 >
+   if 1 raster-pixel-y +! drop 0 then 
+   raster-pixel-x ! ;
+: draw-raster-6x8-fill ( d -- d )
+   pixel-coord
+   dup 1 and 0<>
+   if   grid-fill dup fill-rect
+   else grid-fill dup fill-rect-bg then
+   dshr ;
+: draw-raster-line ( d -- d )
+   draw-raster-6x8-fill   draw-raster-6x8-fill
+   draw-raster-6x8-fill   draw-raster-6x8-fill
+   draw-raster-6x8-fill   draw-raster-6x8-fill ;
+: draw-raster-6x8-letter ( a -- )        \ draw a letter on raster
+   0 raster-pixel-x !
+   0 raster-pixel-y !
+   2@
+   draw-raster-line       draw-raster-line
+   draw-raster-line       draw-raster-line
+   draw-raster-line       draw-raster-line
+   draw-raster-line       draw-raster-line 2drop ;
+: test-pixel-coord-line ( n -- )
+   . raster-pixel-x @ . raster-pixel-y @ . l1-x @ . l1-y @ .
+   pixel-coord ."  | "
+   raster-pixel-x @ . raster-pixel-y @ . l1-x @ . l1-y @ .
+   cr ;
+: trp ( -- )                             \ test pixel-coord
+   cr
+   0 raster-pixel-x ! 0 raster-pixel-y ! 49 0
+   do i test-pixel-coord-line loop ; 
