@@ -106,15 +106,15 @@ $40023C00      constant FLASH_ACR
    $f FLASH_ACR bits! ;
 : flash-prefetch-ena  ( -- )             \ enable prefetch
    #1 #8 lshift FLASH_ACR bis! ;
-: flash-art-ena?  ( -- f )               \ enable ART
+: flash-art-ena?  ( -- f )               \ ART enable ?
    #1 #9 lshift FLASH_ACR bit@ ;
 : flash-art-ena  ( -- )                  \ enable ART
    #1 #9 lshift FLASH_ACR bis! ;
-: flash-art-dis  ( -- )                  \ enable ART
+: flash-art-dis  ( -- )                  \ disable ART
    #1 #9 lshift FLASH_ACR bic! ;
-: flash-art-reset  ( -- )                \ enable ART
+: flash-art-reset  ( -- )                \ reset ART
    #1 #11 lshift FLASH_ACR bis! ;
-: flash-art-unreset  ( -- )              \ enable ART
+: flash-art-unreset  ( -- )              \ unreset ART
    #1 #11 lshift FLASH_ACR bic! ;
 : flash-art-clear  ( -- )                \ clear art cache
    flash-art-ena?
@@ -170,9 +170,9 @@ $3             constant PLLSAI-DIVR/16
 
 
 \ ***** rcc words ***********************
-: rcc-gpio-clk-on  ( n -- )              \ enable single gpio port clock
+: rcc-gpio-clk-on  ( n -- )              \ enable single gpio port clock 0:GPIOA..10:GPIOK
   1 swap lshift RCC_AHB1ENR bis! ;
-: rcc-gpio-clk-off  ( n -- )             \ enable gpio port n clock 0:GPIOA..10:GPIOK
+: rcc-gpio-clk-off  ( n -- )             \ disable gpio port n clock 0:GPIOA..10:GPIOK
   1 swap lshift RCC_AHB1ENR bic! ;
 : rcc-ltdc-clk-on ( -- )                 \ turn on lcd controller clock
    #1 #26 lshift RCC_APB2ENR bis! ;
@@ -218,9 +218,9 @@ $3             constant PLLSAI-DIVR/16
    $1ff #6 lshift RCC_PLLCFGR bits! ;
 : pll-n@  ( -- n )                       \ get Main PLL (PLL) multiplication factor
    $1ff #6 lshift RCC_PLLCFGR bits@ ;
-: pll-p!  ( n -- )                       \ set  Main PLL (PLL) divider
+: pll-p!  ( n -- )                       \ set Main PLL (PLL) divider
    #3 #16 lshift RCC_PLLCFGR bits! ;
-: pll-p@  ( n -- )                       \ set  Main PLL (PLL) divider
+: pll-p@  ( n -- )                       \ get Main PLL (PLL) divider
    #3 #16 lshift RCC_PLLCFGR bits@ ;
 : pllsai-off  ( -- )                     \ turn off PLLSAI
    #1 #28 lshift RCC_CR bic! ;
@@ -232,7 +232,7 @@ $3             constant PLLSAI-DIVR/16
    begin pllsai-on pllsai-ready? until ;
 : pllsai-n!  ( n -- )                    \ set PLLSAI clock multiplication factor
    $1ff #6 lshift RCC_PLLSAICFGR bits! ;
-: pllsai-r!  ( n -- )                    \ set PLLSAI clock multiplication factor
+: pllsai-r!  ( n -- )                    \ set PLLSAI clock division factor
    $7 #28 lshift RCC_PLLSAICFGR bits! ;
 : pllsai-divr!  ( n -- )                 \ division factor for LCD_CLK
    $3 #16 lshift RCC_DKCFGR1 bits! ;
@@ -396,12 +396,12 @@ $C4 LTDC + $80 + constant LTDC_L2CLUTWR     \ Layer2 CLUT Write Register
 \ ***** lcd constants *******************
 #0 constant LCD-PF-ARGB8888              \ pixel format argb
 #1 constant LCD-PF-RGB888                \ pixel format rgb
-#2 constant LCD-PF-RGB565                \ pixelformat 16 bit
-#3 constant LCD-PF-ARGB1555              \ pixelformat 16 bit alpha
-#4 constant LCD-PF-ARGB4444              \ pixelformat 4 bit/color + 4 bit alpha
-#5 constant LCD-PF-L8                    \ pixelformat luminance 8 bit
-#6 constant LCD-PF-AL44                  \ pixelformat 4 bit alpha 4 bit luminance
-#7 constant LCD-PF-AL88                  \ pixelformat 8 bit alpha 8 bit luminance
+#2 constant LCD-PF-RGB565                \ pixel format 16 bit
+#3 constant LCD-PF-ARGB1555              \ pixel format 16 bit alpha
+#4 constant LCD-PF-ARGB4444              \ pixel format 4 bit/color + 4 bit alpha
+#5 constant LCD-PF-L8                    \ pixel format luminance 8 bit
+#6 constant LCD-PF-AL44                  \ pixel format 4 bit alpha 4 bit luminance
+#7 constant LCD-PF-AL88                  \ pixel format 8 bit alpha 8 bit luminance
 
 \ ***** lcd gpio ports ******************
 #4  GPIOE + constant PE4
@@ -595,15 +595,16 @@ $10 constant LTDC_LxCR_CLUTEN                \ Color Look-Up Table Enable
    swap ! ;
 
 \ setup a frame buffer   
-MAX_WIDTH MAX_HEIGHT * dup BUFFER: lcd-fb0-buffer constant lcd-fb0-size#
-lcd-fb0-buffer variable lcd-fb0              \ frame buffer 0 pointer
-lcd-fb0-size#  variable lcd-fb0-size         \ frame buffer 0 size
+MAX_WIDTH MAX_HEIGHT * dup BUFFER: lcd-fb1-buffer constant lcd-fb1-size#
+
+lcd-fb1-buffer variable lcd-fb1              \ frame buffer 1 pointer
+lcd-fb1-size#  variable lcd-fb1-size         \ frame buffer 1 size
 : lcd-layer-colormap-gray-scale ( layer -- ) \ grayscale colormap quick n dirty
    >R
    #256 0 do
      i dup dup #8 lshift or #8 lshift or
      i r@ lcd-layer-color-map
-   loop Rdrop ;
+   loop rdrop ;
 : red-884 ( i -- c )                         \ calc red component for 8-8-4 palette
    $e0 and #5 rshift
    #255 * #3 + #7 /
@@ -631,19 +632,20 @@ lcd-fb0-size#  variable lcd-fb0-size         \ frame buffer 0 size
    lcd-layer-fb-adr@
    MAX_WIDTH MAX_HEIGHT * 0 do dup i + i swap c! loop drop ;
 
-RK043FN48H_HSYNC RK043FN48H_HBP +       constant L0-h-start
-L0-h-start       RK043FN48H_WIDTH + 1-  constant L0-h-end
-RK043FN48H_VSYNC RK043FN48H_VBP +       constant L0-v-start
-L0-v-start       RK043FN48H_HEIGHT + 1- constant L0-v-end
+\ layer 1 view port constants
+RK043FN48H_HSYNC RK043FN48H_HBP +       constant L1-h-start
+L1-h-start       RK043FN48H_WIDTH + 1-  constant L1-h-end
+RK043FN48H_VSYNC RK043FN48H_VBP +       constant L1-v-start
+L1-v-start       RK043FN48H_HEIGHT + 1- constant L1-v-end
 
 
 : lcd-layer1-init ( -- )
    layer1 lcd-layer-off
-   L0-h-start L0-h-end layer1 lcd-layer-h-pos!
-   L0-v-start L0-v-end layer1 lcd-layer-v-pos!
+   L1-h-start L1-h-end layer1 lcd-layer-h-pos!
+   L1-v-start L1-v-end layer1 lcd-layer-v-pos!
    0 layer1 lcd-layer-key-color!         \ key color black no used here
    #5 layer1 lcd-layer-pixel-format!     \ 8 bit per pixel frame buffer format
-   lcd-fb0 @ layer1 lcd-layer-fb-adr!    \ set frame buffer address
+   lcd-fb1 @ layer1 lcd-layer-fb-adr!    \ set frame buffer address
    MAX_WIDTH layer1 lcd-layer-fb-line-length!
    MAX_HEIGHT layer1 lcd-layer-num-lines!
    layer1 fb-init-0-ff
@@ -724,13 +726,13 @@ L0-v-start       RK043FN48H_HEIGHT + 1- constant L0-v-end
   cr     gpiox. ." AFRH    " GPIO_AFRH + @ x.8 cr ;
 
 : vfade ( -- )                           \ vertical fade test
-  lcd-fb0 @
+  lcd-fb1 @
   MAX_HEIGHT 0  do  MAX_WIDTH 0  do  j over c! 1+  loop  loop  drop ;
 : clear ( -- )                           \ fill with 0
-   lcd-fb0 @ dup MAX_HEIGHT MAX_WIDTH * + swap do 0 i ! #4 +loop ;
+   lcd-fb1 @ dup MAX_HEIGHT MAX_WIDTH * + swap do 0 i ! #4 +loop ;
 : fill ( c -- )                          \ fill sceen with color
    dup #8 lshift or dup #16 lshift or
-   lcd-fb0 @ dup MAX_HEIGHT MAX_WIDTH * + swap do dup i ! #4 +loop drop ;
+   lcd-fb1 @ dup MAX_HEIGHT MAX_WIDTH * + swap do dup i ! #4 +loop drop ;
 0 variable l1-x                          \ graphics x-pos
 0 variable l1-y                          \ graphics y-pos
 0 variable l1-c                          \ color
@@ -744,7 +746,7 @@ L0-v-start       RK043FN48H_HEIGHT + 1- constant L0-v-end
    0 max MAX_WIDTH 1- min ;    
 : draw-pixel ( -- )                      \ draw pixel with current color
    l1-c @ l1-y @ y-limit MAX_WIDTH *
-   l1-x @ x-limit + lcd-fb0 @ + c! ;
+   l1-x @ x-limit + lcd-fb1 @ + c! ;
 : l1-x++ ( -- )
    l1-x @ dup MAX_WIDTH 1- < - l1-x ! ;
 : l1-x-- ( -- )
@@ -967,7 +969,7 @@ grid-space 6 * constant grid-h-length
    raster-pixel-x ! ;
 : draw-raster-6x8-fill ( d -- d )
    pixel-coord
-   dup 1 and 0<>
+   over 1 and 0<>
    if   grid-fill dup fill-rect
    else grid-fill dup fill-rect-bg then
    dshr ;
@@ -992,3 +994,6 @@ grid-space 6 * constant grid-h-length
    cr
    0 raster-pixel-x ! 0 raster-pixel-y ! 49 0
    do i test-pixel-coord-line loop ; 
+: circle-palette-test ( -- )
+   demo 50 circle-test -1 palette-demo1 ;
+\ circle-palette-test
