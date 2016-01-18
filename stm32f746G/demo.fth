@@ -32,6 +32,8 @@
                                          \ #400 $7FC0 RCC_PLLCFGR bits!
                                          \ $1FF #6 lshift constant PLLN
                                          \ #400 PLLN RCC_PLLCFGR bits!
+: u.8 ( n -- )                           \ unsigned output 8 digits
+   0 <# # # # # # # # # #> type ;
 : x.8 ( n -- )                           \ hex output 8 digits
    base @ hex swap u.8 base ! ;
 : x.2 ( n -- )                           \ hex output 2 digits
