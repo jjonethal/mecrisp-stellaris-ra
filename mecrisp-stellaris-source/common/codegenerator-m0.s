@@ -360,19 +360,17 @@ literalkomma: @ Save r1, r2 and r3 !
 
   pop {pc}
 
-/* Some tests:
-schuhu: push {lr} 
-        writeln "Es sitzt der Uhu auf einem Baum und macht Schuhuuuu, Schuhuuuu !"
-        pop {pc}
 
-: c <builds $12345678 , does> . ." does>-Teil " ;  c uhu ' uhu dump
-: con <builds h, does> h@ ;  42 con antwort    antwort .
-*/
+.ifdef m0core_start_offset
+  .equ dodoesaddr, (dodoes - addresszero) + m0core_start_offset @ To circumvent address relocation issues
+.else
+  .equ dodoesaddr, dodoes - addresszero @ To circumvent address relocation issues
+.endif
 
-.equ dodoesaddr, dodoes - addresszero @ To circumvent address relocation issues
-.equ dodoes_byte1, ((dodoesaddr + 1)>>8) & 255
-.equ dodoes_byte2,  (dodoesaddr + 1)     & 255
-
+.equ dodoes_byte1, ((dodoesaddr + 1)>>24) & 255
+.equ dodoes_byte2, ((dodoesaddr + 1)>>16) & 255
+.equ dodoes_byte3, ((dodoesaddr + 1)>> 8) & 255
+.equ dodoes_byte4,  (dodoesaddr + 1)      & 255
 
 @ -----------------------------------------------------------------------------
   Wortbirne Flag_visible, "create" @ ANS-Create with default action.
@@ -382,10 +380,20 @@ schuhu: push {lr}
 
   @ Copy of the inline-code of does>
 
-  @ Benötigt das High-Word nicht, da dodoes weit am Anfang des Flashs sitzt.  High word not needed as dodoes in core is in the lowest 64 kb.
-  movs r0, #dodoes_byte1
-  lsls r0, #8
-  adds r0, #dodoes_byte2
+  .ifdef does_above_64kb
+    movs r0, #dodoes_byte1
+    lsls r0, #8
+    adds r0, #dodoes_byte2
+    lsls r0, #8
+    adds r0, #dodoes_byte3
+    lsls r0, #8
+    adds r0, #dodoes_byte4
+  .else @ High word not needed as dodoes in core is in the lowest 64 kb.
+    movs r0, #dodoes_byte3
+    lsls r0, #8
+    adds r0, #dodoes_byte4
+  .endif
+
   blx r0 @ Den Aufruf mit absoluter Adresse einkompilieren. Perform this call with absolute addressing.
 
     @ Die Adresse ist hier nicht auf dem Stack, sondern in LR. LR ist sowas wie "TOS" des Returnstacks.
@@ -412,11 +420,20 @@ does: @ Gives freshly defined word a special action.
   @  movt r0, #:upper16:dodoes+1   
   @ blx r0 @ Den Aufruf mit absoluter Adresse einkompilieren. Perform this call with absolute addressing.
 
+  .ifdef does_above_64kb
+    movs r0, #dodoes_byte1
+    lsls r0, #8
+    adds r0, #dodoes_byte2
+    lsls r0, #8
+    adds r0, #dodoes_byte3
+    lsls r0, #8
+    adds r0, #dodoes_byte4
+  .else @ High word not needed as dodoes in core is in the lowest 64 kb.
+    movs r0, #dodoes_byte3
+    lsls r0, #8
+    adds r0, #dodoes_byte4
+  .endif
 
-  @ Benötigt das High-Word nicht, da dodoes weit am Anfang des Flashs sitzt.  High word not needed as dodoes in core is in the lowest 64 kb.
-  movs r0, #dodoes_byte1
-  lsls r0, #8
-  adds r0, #dodoes_byte2
   blx r0 @ Den Aufruf mit absoluter Adresse einkompilieren. Perform this call with absolute addressing.
 
     @ Die Adresse ist hier nicht auf dem Stack, sondern in LR. LR ist sowas wie "TOS" des Returnstacks.

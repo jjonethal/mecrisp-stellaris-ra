@@ -128,7 +128,7 @@ RTC_ISR @ $300 and
 		$200 of alarmb-addr @  $200 RTC_ISR bic! endof
 	endcase
 ?dup if execute then
-[ 1 17 lshift literal, ] exti_pr bis! 
+1 17 lshift exti_pr bis! 
 ;
 
 
@@ -200,12 +200,12 @@ RTC_Alarm_IRQn nvic-enable
 ;
 
 \ sample
- : t rtc-get-time cr rot . ." :" swap . ." :" . ;
- : d rtc-get-date cr . ." / " . drop ." /" . ;
- : re cr ." isr:" rtc_isr @ hex. space ." cr:" rtc_cr @ hex. ;
+\ : t rtc-get-time cr rot . ." :" swap . ." :" . ;
+\ : d rtc-get-date cr . ." / " . drop ." /" . ;
+\ : re cr ." isr:" rtc_isr @ hex. space ." cr:" rtc_cr @ hex. ;
 
- : mya cr ." Alarm A:" t cr ;
- : myb cr ." Alarm B:" t cr ;
+\ : mya cr ." Alarm A:" t cr ;
+\ : myb cr ." Alarm B:" t cr ;
 
 rtc-init
 

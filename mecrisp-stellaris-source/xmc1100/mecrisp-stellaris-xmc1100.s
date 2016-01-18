@@ -17,17 +17,19 @@
 @
 
 .syntax unified
-.cpu cortex-m4
+.cpu cortex-m0
 .thumb
 
 @ -----------------------------------------------------------------------------
 @ Swiches for capabilities of this chip
 @ -----------------------------------------------------------------------------
 
+.equ m0core, 1
+.equ m0core_start_offset, 0x10001000
+.equ does_above_64kb, 1
 .equ flash16bytesblockwrite, 1
-.equ turbo, 1
 
-@ .equ charkommaavailable, 1  Not available.
+@ Not available:  .equ charkommaavailable, 1
 
 @ -----------------------------------------------------------------------------
 @ Start with some essential macro definitions
@@ -42,14 +44,14 @@
 
 @ Konstanten für die Größe des Ram-Speichers
 
-.equ RamAnfang, 0x20000000 @ Start of RAM                   Porting: Change this !
-.equ RamEnde,   0x20018000 @ End   of RAM.  96 kb. on SRAM2 Porting: Change this !
+.equ RamAnfang, 0x20000000 + vector_table_length @ Start of RAM          Porting: Change this !
+.equ RamEnde,   0x20004000                       @ End   of RAM.  16 kb. Porting: Change this !
 
 @ Konstanten für die Größe und Aufteilung des Flash-Speichers
 
-.equ Kernschutzadresse,     0x00004000 @ Darunter wird niemals etwas geschrieben ! Mecrisp core never writes flash below this address.
-.equ FlashDictionaryAnfang, 0x00004000 @ 20 kb für den Kern reserviert...           20 kb Flash reserved for core.
-.equ FlashDictionaryEnde,   0x00100000 @ 1024 kb Platz für das Flash-Dictionary    1024 kb Flash available. Porting: Change this !
+.equ Kernschutzadresse,     0x10005000 @ Darunter wird niemals etwas geschrieben ! Mecrisp core never writes flash below this address.
+.equ FlashDictionaryAnfang, 0x10005000 @ 16 kb für den Kern reserviert...           16 kb Flash reserved for core.
+.equ FlashDictionaryEnde,   0x10011000 @ 48 kb Platz für das Flash-Dictionary       48 kb Flash available. Porting: Change this !
 .equ Backlinkgrenze,        RamAnfang  @ Ab dem Ram-Start.
 
 
@@ -67,34 +69,26 @@
 .include "../common/forth-core.s"
 
 @ -----------------------------------------------------------------------------
-@ turbo mode
-@ -----------------------------------------------------------------------------
-.ifdef turbo
- .include "turbo.s"
-.endif
-
-@ -----------------------------------------------------------------------------
 Reset: @ Einsprung zu Beginn
 @ -----------------------------------------------------------------------------
    @ Initialisierungen der Hardware, habe und brauche noch keinen Datenstack dafür
-
-.ifdef turbo
-   @ activate 48 Mhz mode
-   bl clk_48mhz_msi
-.endif
-
    @ Initialisations for Terminal hardware, without Datastack.
    bl uart_init
+   
+   @ This chip has a strange vector table remap which requires interrupt handler code at specific locations in RAM.
 
-.ifdef turbo
-   @ adjust usart baud rate for 48 MHz
-   bl serial_115200_48MHZ
-.endif
+   ldr psp, =datenstackanfang
+
+  pushdaconstw vector_table_start
+  pushdaconstw 0x20000000
+  pushdaconst  vector_table_length
+  bl move
+
 
    @ Catch the pointers for Flash dictionary
    .include "../common/catchflashpointers.s"
-
-   welcome " for STM32L476 by Matthias Koch "
+   
+   welcome " with M0 core for XMC1100 by Matthias Koch"
 
    @ Ready to fly !
    .include "../common/boot.s"

@@ -10,6 +10,14 @@
 \ PA2 - right
 \ PA3 - up
 \ PA5 - down
+compiletoflash 
+\ Cornerstone for 2 kb Flash pages
+
+: cornerstone ( Name ) ( -- )
+  <builds begin here $7FF and while 0 h, repeat
+  does>   begin dup  $7FF and while 2+   repeat 
+          eraseflashfrom
+;
 
 : esc?  ( -- f )                              \ escape key on terminal pressed ?
    key? if key #27 = else 0 then ;
