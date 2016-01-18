@@ -112,6 +112,14 @@ cd stm32l476-ra
 make clean
 cd ..
 
+cd xmc1100
+make clean
+cd ..
+
+cd xmc1100-ra
+make clean
+cd ..
+
 cd linux
 rm mecrisp-stellaris-linux.o
 rm mecrisp-stellaris-linux

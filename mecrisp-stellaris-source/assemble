@@ -112,6 +112,13 @@ cd stm32l476-ra
 make clean all && ls -l *.bin && md5sum *.bin && cp *.bin ../../stm32l476-ra
 cd ..
 
+cd xmc1100
+make clean all && ls -l *.bin && md5sum *.bin && cp *.bin ../../xmc1100 && cp *.hex ../../xmc1100
+cd ..
+
+cd xmc1100-ra
+make clean all && ls -l *.bin && md5sum *.bin && cp *.bin ../../xmc1100-ra && cp *.hex ../../xmc1100-ra
+cd ..
 
 # Intel Hex images for STM targets:
 

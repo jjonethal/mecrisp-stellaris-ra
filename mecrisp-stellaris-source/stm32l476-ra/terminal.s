@@ -101,6 +101,17 @@ uart_init: @ ( -- ) A few bits are different
 
   bx lr
 
+.ifdef turbo
+@ change baudrate for 48 MHz mode
+@ -----------------------------------------------------------------------------
+serial_115200_48MHZ: @ set usart2 baudrate to 115200 baud at 48 MHz
+@ -----------------------------------------------------------------------------
+    ldr r0, =USART2_BRR
+    ldr r1, =(48000000 + 115200 / 2) / 115200
+    str r1, [r0]
+    bx  lr  
+.endif  @ .ifdef turbo
+  
 @ Following code is the same as for STM32F051
 .include "../common/terminalhooks.s"
 
@@ -167,7 +178,7 @@ serial_qkey:  @ ( -- ? ) Is there a key press ?
    movs r0, #RXNE
    ands r1, r0
    beq 1f
-     mvns tos, tos @ True Flag
+   mvns tos, tos @ True Flag
 1: pop {pc}
 
   .ltorg @ Hier werden viele spezielle Hardwarestellenkonstanten gebraucht, schreibe sie gleich !

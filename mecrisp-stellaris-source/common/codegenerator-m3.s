@@ -506,7 +506,7 @@ literalkomma: @ Save r1, r2 and r3 !
   @ Universeller Sprung zu dodoes:  Universal jump to dodoes. There has already been a push {lr} before in the definition that calls does>.
   @ Davor ist in dem Wort, wo does> eingefügt wird schon ein push {lr} gewesen.
   movw r0, #:lower16:dodoes+1
-  .ifdef within_os
+  .ifdef does_above_64kb
     movt r0, #:upper16:dodoes+1   @ Dieser Teil ist Null, da dodoes weit am Anfang des Flashs sitzt.  Not needed as dodoes in core is in the lowest 64 kb.
   .endif
   blx r0 @ Den Aufruf mit absoluter Adresse einkompilieren. Perform this call with absolute addressing.
@@ -532,7 +532,7 @@ does: @ Gives freshly defined word a special action.
   @ Universeller Sprung zu dodoes:  Universal jump to dodoes. There has already been a push {lr} before in the definition that calls does>.
   @ Davor ist in dem Wort, wo does> eingefügt wird schon ein push {lr} gewesen.
   movw r0, #:lower16:dodoes+1
-  .ifdef within_os
+  .ifdef does_above_64kb
     movt r0, #:upper16:dodoes+1   @ Dieser Teil ist Null, da dodoes weit am Anfang des Flashs sitzt.  Not needed as dodoes in core is in the lowest 64 kb.
   .endif
   blx r0 @ Den Aufruf mit absoluter Adresse einkompilieren. Perform this call with absolute addressing.

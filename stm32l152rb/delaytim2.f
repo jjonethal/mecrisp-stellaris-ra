@@ -16,7 +16,7 @@ dup TIM2_ARR ! TIM2_CNT !
 ;
 
 : us ( n -- ) init-delaytim2 FCK_PSC 1000001 / TIM2_PSC ! delay-tim2 ;
-: ms ( n -- ) init-delaytim2 FCK_PSC 1001 / TIM2_PSC ! delay-tim2 ;
+: ms ( n -- ) init-delaytim2 FCK_PSC 1001 /  TIM2_PSC ! delay-tim2 ;
 
 
 

@@ -25,6 +25,7 @@
 @ -----------------------------------------------------------------------------
 
 .equ flash16bytesblockwrite, 1
+.equ turbo, 1
 
 @ .equ charkommaavailable, 1  Not available.
 
@@ -47,7 +48,7 @@
 @ Konstanten für die Größe und Aufteilung des Flash-Speichers
 
 .equ Kernschutzadresse,     0x00004000 @ Darunter wird niemals etwas geschrieben ! Mecrisp core never writes flash below this address.
-.equ FlashDictionaryAnfang, 0x00004000 @ 16 kb für den Kern reserviert...           16 kb Flash reserved for core.
+.equ FlashDictionaryAnfang, 0x00004000 @ 20 kb für den Kern reserviert...           20 kb Flash reserved for core.
 .equ FlashDictionaryEnde,   0x00100000 @ 1024 kb Platz für das Flash-Dictionary    1024 kb Flash available. Porting: Change this !
 .equ Backlinkgrenze,        RamAnfang  @ Ab dem Ram-Start.
 
@@ -66,11 +67,29 @@
 .include "../common/forth-core.s"
 
 @ -----------------------------------------------------------------------------
+@ turbo mode
+@ -----------------------------------------------------------------------------
+.ifdef turbo
+ .include "turbo.s"
+.endif
+
+@ -----------------------------------------------------------------------------
 Reset: @ Einsprung zu Beginn
 @ -----------------------------------------------------------------------------
    @ Initialisierungen der Hardware, habe und brauche noch keinen Datenstack dafür
+
+.ifdef turbo
+   @ activate 48 Mhz mode
+   bl clk_48mhz_msi
+.endif
+
    @ Initialisations for Terminal hardware, without Datastack.
    bl uart_init
+
+.ifdef turbo
+   @ adjust usart baud rate for 48 MHz
+   bl serial_115200_48MHZ
+.endif
 
    @ Catch the pointers for Flash dictionary
    .include "../common/catchflashpointers.s"
