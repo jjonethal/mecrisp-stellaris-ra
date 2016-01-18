@@ -967,24 +967,24 @@ grid-space 6 * constant grid-h-length
    raster-pixel-x @ 1+ dup 5 >
    if 1 raster-pixel-y +! drop 0 then 
    raster-pixel-x ! ;
-: draw-raster-6x8-fill ( d -- d )
+: draw-raster-6x8-fill ( d -- d )        \ draw lsb a square and shift down
    pixel-coord
    over 1 and 0<>
    if   grid-fill dup fill-rect
    else grid-fill dup fill-rect-bg then
    dshr ;
-: draw-raster-line ( d -- d )
-   draw-raster-6x8-fill   draw-raster-6x8-fill
-   draw-raster-6x8-fill   draw-raster-6x8-fill
-   draw-raster-6x8-fill   draw-raster-6x8-fill ;
-: draw-raster-6x8-letter ( a -- )        \ draw a letter on raster
+: draw-raster-6x8-line ( d -- d )        \ draw a 6 pixel line
+   draw-raster-6x8-fill draw-raster-6x8-fill
+   draw-raster-6x8-fill draw-raster-6x8-fill
+   draw-raster-6x8-fill draw-raster-6x8-fill ;
+: draw-raster-6x8-letter ( a -- )        \ draw a character bitmap on raster
    0 raster-pixel-x !
    0 raster-pixel-y !
    2@
-   draw-raster-line       draw-raster-line
-   draw-raster-line       draw-raster-line
-   draw-raster-line       draw-raster-line
-   draw-raster-line       draw-raster-line 2drop ;
+   draw-raster-6x8-line draw-raster-6x8-line
+   draw-raster-6x8-line draw-raster-6x8-line
+   draw-raster-6x8-line draw-raster-6x8-line
+   draw-raster-6x8-line draw-raster-6x8-line 2drop ;
 : test-pixel-coord-line ( n -- )
    . raster-pixel-x @ . raster-pixel-y @ . l1-x @ . l1-y @ .
    pixel-coord ."  | "
@@ -997,3 +997,36 @@ grid-space 6 * constant grid-h-length
 : circle-palette-test ( -- )
    demo 50 circle-test -1 palette-demo1 ;
 \ circle-palette-test
+
+: bit-reverse-5..0 ( w - w ) \ reverse b0-b5
+   $3f and
+   dup  $01 and #5 lshift
+   over $02 and #3 lshift or
+   over $04 and shl or
+   over $08 and shr or
+   over $10 and #3 rshift or
+   swap $20 and #5 rshift or ;
+: 5dlshift ( d -- d )
+  #64 0 ud* ;
+: bit-5..0-rev-append ( w d -- d )
+  5dlshift rot bit-reverse-5..0  rot or swap ;
+: genchar ( l1 l2 l3 l4 l5 l6 l7 l8 -- d ) \ generate character bitmap
+   bit-reverse-5..0 0                         \ line 8 
+   5dlshift rot bit-reverse-5..0  rot or swap \ line 7
+   5dlshift rot bit-reverse-5..0  rot or swap \ line 6
+   5dlshift rot bit-reverse-5..0  rot or swap \ line 5
+   5dlshift rot bit-reverse-5..0  rot or swap \ line 4
+   5dlshift rot bit-reverse-5..0  rot or swap \ line 3
+   5dlshift rot bit-reverse-5..0  rot or swap \ line 2
+   5dlshift rot bit-reverse-5..0  rot or swap ;  \ line 1
+   
+%011100   \ b00,b01,b02,b03,b04,b05
+%100010   \ b06,b07,b08,b09,b10,b11
+%100010   \ b12,b13,b14,b15,b16,b17
+%111110   \ b18,b19,b20,b21,b22,b23
+%100010   \ b24,b25,b26,b27,b28,b29
+%100010   \ b30,b31,b32,b33,b34,b35
+%000000   \ b36,b37,b38,b39,b40,b41
+%000000   \ b36,b37,b38,b39,b40,b41
+genchar
+
