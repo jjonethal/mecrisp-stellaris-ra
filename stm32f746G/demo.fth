@@ -979,10 +979,10 @@ grid-space 6 * constant grid-h-length
    draw-raster-6x8-fill draw-raster-6x8-fill
    draw-raster-6x8-fill draw-raster-6x8-fill
    draw-raster-6x8-fill draw-raster-6x8-fill ;
-: draw-raster-6x8-letter ( a -- )        \ draw a character bitmap on raster
+: draw-raster-6x8-letter ( d -- )        \ draw a character bitmap on raster
    0 raster-pixel-x !
    0 raster-pixel-y !
-   2@
+   \ 2@
    draw-raster-6x8-line draw-raster-6x8-line
    draw-raster-6x8-line draw-raster-6x8-line
    draw-raster-6x8-line draw-raster-6x8-line
@@ -996,7 +996,7 @@ grid-space 6 * constant grid-h-length
    cr
    0 raster-pixel-x ! 0 raster-pixel-y ! 49 0
    do i test-pixel-coord-line loop ; 
-: circle-palette-test ( -- )
+: circle-palette-test ( -- )             \ animated color cycling circles
    demo 50 circle-test -1 palette-demo1 ;
 \ circle-palette-test
 
@@ -1008,27 +1008,54 @@ grid-space 6 * constant grid-h-length
    over $08 and shr or
    over $10 and #3 rshift or
    swap $20 and #5 rshift or ;
-: 5dlshift ( d -- d )
+: 5dlshift ( d -- d )                    \ shift double left by 5 bits
   #64 0 ud* ;
-: bit-5..0-rev-append ( w d -- d )
+: bit-5..0-rev-append ( w d -- d )       \ reverse bits 5..0 and append them to double word on stack
   5dlshift rot bit-reverse-5..0  rot or swap ;
-: genchar ( l1 l2 l3 l4 l5 l6 l7 l8 -- d ) \ generate character bitmap
-   bit-reverse-5..0 0                         \ line 8 
-   5dlshift rot bit-reverse-5..0  rot or swap \ line 7
-   5dlshift rot bit-reverse-5..0  rot or swap \ line 6
-   5dlshift rot bit-reverse-5..0  rot or swap \ line 5
-   5dlshift rot bit-reverse-5..0  rot or swap \ line 4
-   5dlshift rot bit-reverse-5..0  rot or swap \ line 3
-   5dlshift rot bit-reverse-5..0  rot or swap \ line 2
-   5dlshift rot bit-reverse-5..0  rot or swap ;  \ line 1
-   
-%011100   \ b00,b01,b02,b03,b04,b05
-%100010   \ b06,b07,b08,b09,b10,b11
-%100010   \ b12,b13,b14,b15,b16,b17
-%111110   \ b18,b19,b20,b21,b22,b23
-%100010   \ b24,b25,b26,b27,b28,b29
-%100010   \ b30,b31,b32,b33,b34,b35
-%000000   \ b36,b37,b38,b39,b40,b41
-%000000   \ b36,b37,b38,b39,b40,b41
-genchar
+: genchar ( l1 l2 l3 l4 l5 l6 l7 l8 -- d ) \ generate character bitmap line by line
+   bit-reverse-5..0 0                    \ line 8 
+   bit-5..0-rev-append                   \ line 7
+   bit-5..0-rev-append                   \ line 6
+   bit-5..0-rev-append                   \ line 5
+   bit-5..0-rev-append                   \ line 4
+   bit-5..0-rev-append                   \ line 3
+   bit-5..0-rev-append                   \ line 2
+   bit-5..0-rev-append ;                 \ line 1
 
+\ some colors in 8-8-4 palette
+\ red b7..5 green b4..2 blue b1..0
+              7 2 lshift    constant green
+   7 5 lshift 7 2 lshift or constant yellow
+   7 5 lshift 4 2 lshift or constant orange
+   7 5 lshift               constant red
+                          3 constant blue
+                          0 constant black
+                          
+: test-genchar                           \ test genchar
+   demo                                  \ init display
+   layer1 lcd-layer-color-map-8-8-4      \ colormap rgb 8-8-4
+   black fill                            \ clear screen
+   232 color! draw-raster-6x8            \ orange raster
+   green color!
+   %001000   \ b00,b01,b02,b03,b04,b05
+   %010100   \ b06,b07,b08,b09,b10,b11
+   %100010   \ b12,b13,b14,b15,b16,b17
+   %111110   \ b18,b19,b20,b21,b22,b23
+   %100010   \ b24,b25,b26,b27,b28,b29
+   %100010   \ b30,b31,b32,b33,b34,b35
+   %000000   \ b36,b37,b38,b39,b40,b41
+   %000000   \ b36,b37,b38,b39,b40,b41
+   genchar
+   draw-raster-6x8-letter ;
+: raster-color-up ( -- )                 \ next color
+  l1-c @ 1+ $ff and dup . cr color! draw-raster-6x8 ;
+: raster-color-down ( -- )               \ previous color
+  l1-c @ 1- $ff and dup . cr color! draw-raster-6x8 ;
+: raster-color-sel ( -- )                \ change raster color
+   l1-c @ . cr draw-raster-6x8
+   begin key case [char] w of raster-color-up   0 endof \ next color
+                  [char] s of raster-color-down 0 endof \ previous color
+                  [char] q of                   1 endof
+                  1
+             endcase
+   until ;
