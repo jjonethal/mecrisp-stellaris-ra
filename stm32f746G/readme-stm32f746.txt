@@ -34,3 +34,8 @@ shall be unified.
 CPU is switched to 200 MHz, display clock is 9.6 MHz. Only LCD layer 1 is used
 at the moment.
 
+some demo words:
+ * demo                - initialize display and 200 MHz clock
+ * sys-clk-200-mhz     - set system clock to 200 MHz, usart 115200 baud
+ * test-genchar        - test some character generator functions
+ * circle-palette-test - do some palette cycling tests
