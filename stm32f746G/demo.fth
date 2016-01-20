@@ -824,8 +824,12 @@ L1-v-start       RK043FN48H_HEIGHT + 1- constant L1-v-end
    2dup dy ! dx !
    >= if line-x>=y else
          line-y>=x then ;
+: b->bbbb ( -- )                         \ expand a byte to 4 byte 0xAB -> 0xABAB_ABAB
+   dup #8 lshift or dup #16 lshift or ;
 : color! ( c -- )
-   $ff and l1-c ! ;
+   $ff and b->bbbb l1-c ! ;
+: bg! ( c -- )
+   $ff and b->bbbb l1-bg ! ;
 : move-to ( x y -- )                     \ move graphics cursor to
    y-limit l1-y !
    x-limit l1-x ! ;
@@ -868,10 +872,10 @@ L1-v-start       RK043FN48H_HEIGHT + 1- constant L1-v-end
    else over 0< if + -1 else drop 0 then
    then ;
 \ : s vx @ abs vy @ abs > if vy @ fy +!
-0 variable idx  
+0 variable idx                           \ current color cycling palette index 
 : idx++ ( -- )
   idx @ 1+ $ff and idx ! ;
-: rgb>color ( r g b -- c )
+: rgb>color ( r g b -- c )               \ calc color c from r-g-b components
   $ff and swap $ff and 8 lshift or swap $ff and #16 lshift or ;
 : r-g-b-r ( -- )                         \ red green blue palette for color cycling, start at idx
   #256 0 do #255 i - i 0 rgb>color idx @ layer1 lcd-layer-color-map idx++ 3 +loop
@@ -907,7 +911,7 @@ L1-v-start       RK043FN48H_HEIGHT + 1- constant L1-v-end
   over $4 and #14 lshift or
   over $2 and  #7 lshift or
   swap  1 and            or
-  dup 2* or dup 2 lshift or ;
+  dup 2* or dup 2 lshift or dup 4 lshift or ;
 (create) nibble-mask-tab
    #0 n->bbbb ,  #1 n->bbbb ,  #2 n->bbbb ,  #3 n->bbbb ,
    #4 n->bbbb ,  #5 n->bbbb ,  #6 n->bbbb ,  #7 n->bbbb ,
@@ -917,20 +921,20 @@ L1-v-start       RK043FN48H_HEIGHT + 1- constant L1-v-end
 : pixel-4-mask ( n -- n )                \ cache table
    2 lshift nibble-mask-tab-adr + @ 1-foldable ; 
 0 variable pixel-adr
-: b->bbbb ( -- )                         \ expand a byte to 4 byte 0xAB -> 0xABAB_ABAB
-   dup #8 lshift or dup #16 lshift or ;
 : pixel-line-4 ( n -- )                  \ draw 4 2-color pixel 1-forground 0 background
-   $f and pixel-4-mask dup negate l1-bg @ b->bbbb and
-   swap l1-c @ b->bbbb and or pixel-adr @ ! ;
+   $f and pixel-4-mask dup l1-c @ and    \ forground color
+   swap not l1-bg @ and or               \ background color
+   pixel-adr @ ! ;
 : pixel-line-2 ( n -- )                  \ draw 2 2-color pixel 1-forground 0 background
-   $3 and pixel-4-mask dup negate l1-bg @ b->bbbb and
-   swap l1-c @ b->bbbb and or pixel-adr @ 2 + h! ;
+   $3 and pixel-4-mask dup l1-c @ and
+   swap not l1-bg @ and or
+   pixel-adr @ 2 + h! ;
 : pixel-line-6-y++ ( n -- )              \ draw 6 2-color pixel in a line starting from pixel-adr
    dup pixel-line-4                      \ update pixel adr to next line
    4 rshift pixel-line-2
-   pixel-adr @ MAX_WIDTH + pixel-adr ! ; \ next line
-: draw-letter-6x8 ( a -- )
-   2@ dup pixel-line-6-y++
+   MAX_WIDTH pixel-adr +! ;              \ next line
+: draw-letter-6x8 ( d -- )               \ draw a 6x8 character
+   swap pixel-line-6-y++
    dup #6 rshift pixel-line-6-y++
    dup #12 rshift pixel-line-6-y++
    dup #18 rshift pixel-line-6-y++
@@ -958,7 +962,7 @@ grid-space 6 * constant grid-h-length
      i l1-y ! grid-h-start l1-x ! grid-h-length hline
    grid-space +loop ;
    
-: draw-raster-6x8 ( -- )                 \ draw a 6x8 raster
+: draw-raster-6x8 ( -- )                 \ draw a 6x8 raster in the center of the screen
    draw-raster-h-grid
    draw-raster-v-grid ;
 0 variable raster-pixel-x
@@ -999,7 +1003,15 @@ grid-space 6 * constant grid-h-length
 : circle-palette-test ( -- )             \ animated color cycling circles
    demo 50 circle-test -1 palette-demo1 ;
 \ circle-palette-test
-
+: rbit,  ( rm rd -- )                    \ compile reverse bits instruction rm:operand reg rd:destination reg
+   over $f and
+   %1111101010010000 or h,
+   $f and 8 lshift swap $f and or
+   %1111000010100000 or h, ;
+: reverse ( w -- w )                     \ reverse bits
+   [ 6 6 rbit, ] 1-foldable inline ;
+: reverse-5:0 ( w -- w )                 \ reverse bit 5..0
+   rbit #26 rshift ;   
 : bit-reverse-5..0 ( w - w ) \ reverse b0-b5
    $3f and
    dup  $01 and #5 lshift
@@ -1008,10 +1020,10 @@ grid-space 6 * constant grid-h-length
    over $08 and shr or
    over $10 and #3 rshift or
    swap $20 and #5 rshift or ;
-: 5dlshift ( d -- d )                    \ shift double left by 5 bits
+: 6dlshift ( d -- d )                    \ shift double left by 6 bits
   #64 0 ud* ;
 : bit-5..0-rev-append ( w d -- d )       \ reverse bits 5..0 and append them to double word on stack
-  5dlshift rot bit-reverse-5..0  rot or swap ;
+  6dlshift rot bit-reverse-5..0  rot or swap ;
 : genchar ( l1 l2 l3 l4 l5 l6 l7 l8 -- d ) \ generate character bitmap line by line
    bit-reverse-5..0 0                    \ line 8 
    bit-5..0-rev-append                   \ line 7
@@ -1030,7 +1042,16 @@ grid-space 6 * constant grid-h-length
    7 5 lshift               constant red
                           3 constant blue
                           0 constant black
-                          
+\ Character 'A'
+   %001000   \ b00,b01,b02,b03,b04,b05
+   %010100   \ b06,b07,b08,b09,b10,b11
+   %100010   \ b12,b13,b14,b15,b16,b17
+   %111110   \ b18,b19,b20,b21,b22,b23
+   %100010   \ b24,b25,b26,b27,b28,b29
+   %100010   \ b30,b31,b32,b33,b34,b35
+   %000000   \ b36,b37,b38,b39,b40,b41
+   %000000   \ b36,b37,b38,b39,b40,b41
+   genchar 2constant cg-big-a                          
 : test-genchar                           \ test genchar
    demo                                  \ init display
    layer1 lcd-layer-color-map-8-8-4      \ colormap rgb 8-8-4
@@ -1051,11 +1072,16 @@ grid-space 6 * constant grid-h-length
   l1-c @ 1+ $ff and dup . cr color! draw-raster-6x8 ;
 : raster-color-down ( -- )               \ previous color
   l1-c @ 1- $ff and dup . cr color! draw-raster-6x8 ;
-: raster-color-sel ( -- )                \ change raster color
-   l1-c @ . cr draw-raster-6x8
+: raster-color-sel ( -- )                \ change raster color interactive
+   l1-c @ $ff and . cr draw-raster-6x8
    begin key case [char] w of raster-color-up   0 endof \ next color
                   [char] s of raster-color-down 0 endof \ previous color
                   [char] q of                   1 endof
                   1
              endcase
    until ;
+: test-char-gen
+   demo 0 fill $ff color!
+   $0 bg!
+   lcd-fb1 @ pixel-adr !
+   cg-big-a draw-letter-6x8 ;
