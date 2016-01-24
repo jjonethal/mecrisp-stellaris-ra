@@ -38,6 +38,19 @@
    base @ hex swap u.8 base ! ;
 : x.2 ( n -- )                           \ hex output 2 digits
    base @ hex swap 0 <# # # #> type base ! ;
+: cfill ( c n a -- )                     \ fill memory block at address a length n with char c
+   tuck + swap do dup i c! loop drop ;
+: d2**  ( n -- d )                       \ return 2^n 
+   dup #31 > if
+     #32 - 1 swap lshift 0 swap
+   else
+     1 swap lshift 0
+   then 1-foldable ;
+: dxor ( d d -- d )                      \ double xor
+   rot xor -rot xor swap 4-foldable ;
+: $. ( -- )                              \ print a dollar sign 
+   [char] $ emit ;
+
 
 \ ***** gpio definitions ****************
 \ http://www.st.com/web/en/resource/technical/document/reference_manual/DM00124865.pdf#page=195&zoom=auto,67,755
@@ -101,7 +114,7 @@ $24         constant GPIO_AFRH
    swap port-base #8 + bits! ;
 : mode-af-fast ( af pin -- )
    #2 over speed-mode mode-af ;
-   
+
 \ ***** Flash read access config ********
 $40023C00      constant FLASH_ACR
 : flash-ws! ( n -- )                     \ set flash latency
@@ -505,7 +518,7 @@ RK043FN48H_HEIGHT constant MAX_HEIGHT    \ maximum height
    LCD_BL bsrr-on LCD_BL port-base GPIO_BSRR + ! ;
 : lcd-backlight-off  ( -- )              \ lcd back light on
    LCD_BL bsrr-off LCD_BL port-base GPIO_BSRR + ! ;
-: lcd-clk-init ( -- )                    \ enable 
+: lcd-clk-init ( -- )                    \ enable
    rcc-ltdc-clk-on
    pllsai-clk-192-mhz ;
 : lcd-gpio-init ( -- )                   \ initialize all lcd gpio ports
@@ -548,7 +561,7 @@ RK043FN48H_HEIGHT constant MAX_HEIGHT    \ maximum height
 
    0 0 0 lcd-back-color!                 \ black back ground
    1 LTDC_GCR !                          \ LTDCEN LCD-TFT controller enable
-   
+
    lcd-backlight-init lcd-backlight-on ;
 \ ***** lcd layer functions *************
 0   constant layer1
@@ -596,7 +609,7 @@ $10 constant LTDC_LxCR_CLUTEN                \ Color Look-Up Table Enable
    swap $ffffff and or                       \ cleanup color
    swap ! ;
 
-\ setup a frame buffer   
+\ setup a frame buffer
 MAX_WIDTH MAX_HEIGHT * dup BUFFER: lcd-fb1-buffer constant lcd-fb1-size#
 
 lcd-fb1-buffer variable lcd-fb1              \ frame buffer 1 pointer
@@ -615,24 +628,29 @@ lcd-fb1-size#  variable lcd-fb1-size         \ frame buffer 1 size
    $1C and #2 rshift
    #255 * #3 + #7 /
    #8 lshift ;
-: blue-884 ( i -- c )                        \ blue component for 8-8-4 palette
+: blue-884 ( i -- c )                    \ blue component for 8-8-4 palette
    $3 and
    #255 * 1 + 3 / ;
-   
-: lcd-layer-color-map-8-8-4 ( layer -- )     \ colormap 8 level red 8 green 4 blue
+
+: lcd-layer-color-map-8-8-4 ( layer -- ) \ colormap 8 level red 8 green 4 blue
    >R
   256 0 do
-    i dup red-884                            \ red
-    over  green-884 or                       \ green
-    over  blue-884 or                        \ blue
+    i dup red-884                        \ red
+    over  green-884 or                   \ green
+    over  blue-884 or                    \ blue
     swap R@ lcd-layer-color-map
     lcd-reg-update
   loop rdrop ;
-   
+
 : fb-init-0-ff ( layer -- )              \ fill frame buffer with values 0..255
    lcd-reg-update
    lcd-layer-fb-adr@
    MAX_WIDTH MAX_HEIGHT * 0 do dup i + i swap c! loop drop ;
+: fb-init-0  ( layer -- )                \ fill frame buffer with 0
+   lcd-reg-update                        \ update shadow regs 
+   lcd-layer-fb-adr@
+   MAX_WIDTH MAX_HEIGHT * over + swap
+   do 0 i c! loop ;
 
 \ layer 1 view port constants
 RK043FN48H_HSYNC RK043FN48H_HBP +       constant L1-h-start
@@ -650,7 +668,7 @@ L1-v-start       RK043FN48H_HEIGHT + 1- constant L1-v-end
    lcd-fb1 @ layer1 lcd-layer-fb-adr!    \ set frame buffer address
    MAX_WIDTH layer1 lcd-layer-fb-line-length!
    MAX_HEIGHT layer1 lcd-layer-num-lines!
-   layer1 fb-init-0-ff
+   layer1 fb-init-0
    layer1 lcd-layer-color-map-8-8-4
    LTDC_LxCR_CLUTEN layer1 lcd-layer-on!
    0 layer1 lcd-layer-default-color!
@@ -662,15 +680,15 @@ L1-v-start       RK043FN48H_HEIGHT + 1- constant L1-v-end
 : demo ( -- )
    sys-clk-200-mhz lcd-init lcd-layer1-init lcd-reg-update lcd-backlight-on ;
 : >token ( a -- a )                      \ retrieve token name address for cfa
-   1- dup c@ 0= +                        \ skip the padding zero 
+   1- dup c@ 0= +                        \ skip the padding zero
    #256 1 do 1- dup c@ i = if leave then loop ; \ backtrack to start of counted string
 : ctype.n ( width a -- )                 \ output counted string with fixed width
    dup ctype c@ - spaces ;
 : const. ( a -- )                        \ dump register constant
    cr dup >token #15 swap ctype.n
    execute dup x.8 space @ x.8 ;
-: 'reg. ( -- ) ( n:constant )            \ dump next word as register constant 
-   postpone ['] postpone const. immediate ; 
+: 'reg. ( -- ) ( n:constant )            \ dump next word as register constant
+   postpone ['] postpone const. immediate ;
 : lcd. ( -- )                            \ dump lcd registers
   'reg. LTDC_SSCR
   'reg. LTDC_BPCR
@@ -698,7 +716,7 @@ L1-v-start       RK043FN48H_HEIGHT + 1- constant L1-v-end
   'reg. LTDC_L1CFBLR
   'reg. LTDC_L1CFBLNR
   'reg. LTDC_L1CLUTWR cr ;
-: lcd-l2.  ( -- )  
+: lcd-l2.  ( -- )                        \ dump lcd layer2 registers
   'reg. LTDC_L2CR
   'reg. LTDC_L2WHPCR
   'reg. LTDC_L2WVPCR
@@ -711,8 +729,8 @@ L1-v-start       RK043FN48H_HEIGHT + 1- constant L1-v-end
   'reg. LTDC_L2CFBLR
   'reg. LTDC_L2CFBLNR
   'reg. LTDC_L2CLUTWR cr ;
-: gpiox. ( base -- base )                \ output string "gpio[a..x]_"
-  dup ." GPIO" port# [char] A + emit [char] _ emit ; 
+: gpiox. ( base -- base )                \ output string "GPIO[a..x]_"
+  dup ." GPIO" port# [char] A + emit [char] _ emit ;
 : gpio. ( pin -- )                       \ dump gpio port settings for pin
   dup cr ." PIN " $f and . cr
   port-base
@@ -743,9 +761,9 @@ L1-v-start       RK043FN48H_HEIGHT + 1- constant L1-v-end
 0 variable l1-bg                         \ background color
 0 variable l1-bg4                        \ bcbcbcbc 4xbackground color
 : y-limit ( y -- y )                     \ limit y
-   0 max MAX_HEIGHT 1- min ;    
+   0 max MAX_HEIGHT 1- min ;
 : x-limit ( y -- y )                     \ limit y
-   0 max MAX_WIDTH 1- min ;    
+   0 max MAX_WIDTH 1- min ;
 : draw-pixel ( -- )                      \ draw pixel with current color
    l1-c @ l1-y @ y-limit MAX_WIDTH *
    l1-x @ x-limit + lcd-fb1 @ + c! ;
@@ -838,7 +856,7 @@ L1-v-start       RK043FN48H_HEIGHT + 1- constant L1-v-end
    l1-x @ + x-limit l1-x ! ;
 : nics-home ( -- )                       \ draw saint nicolaus home
   0 fill 0 0 move-to
-   100    0 line 
+   100    0 line
   -100  100 line
    100    0 line
    -50   50 line
@@ -853,7 +871,7 @@ L1-v-start       RK043FN48H_HEIGHT + 1- constant L1-v-end
    do i l1-y ! dup hline-cx loop
    drop ;
 : fill-rect-bg ( w h -- )
-  l1-c @ -rot l1-bg @ l1-c ! fill-rect l1-c ! ; 
+  l1-c @ -rot l1-bg @ l1-c ! fill-rect l1-c ! ;
 0 variable vx
 0 variable vy
 0 variable fx
@@ -863,7 +881,7 @@ L1-v-start       RK043FN48H_HEIGHT + 1- constant L1-v-end
    $4 LTDC_CDSR bit@ ;
 : wait-vsync ( -- )                      \ wait for vertical sync
    begin vsync? not until
-   begin vsync?     until ;   
+   begin vsync?     until ;
 : <0> ( n -- n )                         \ sign <0:-1, 0:0, >0:1
    dup 0< swap 0 > negate or ;
 : mod-step ( a d -- m d )                \ modulo step (a<0): a+d, -1 (a>=d):a-d, 1 else a, 0
@@ -872,7 +890,7 @@ L1-v-start       RK043FN48H_HEIGHT + 1- constant L1-v-end
    else over 0< if + -1 else drop 0 then
    then ;
 \ : s vx @ abs vy @ abs > if vy @ fy +!
-0 variable idx                           \ current color cycling palette index 
+0 variable idx                           \ current color cycling palette index
 : idx++ ( -- )
   idx @ 1+ $ff and idx ! ;
 : rgb>color ( r g b -- c )               \ calc color c from r-g-b components
@@ -897,14 +915,14 @@ L1-v-start       RK043FN48H_HEIGHT + 1- constant L1-v-end
   loop drop ;
 : circle-demo ( -- )
   begin
-  150 1 do i circle-test 
-    wait-vsync r-g-b-r
-    key? if leave then
-  loop
-  150 1 do 150 i - circle-test 
-    wait-vsync r-g-b-r
-    key? if leave then
-  loop
+    150 1 do i circle-test
+      wait-vsync r-g-b-r
+      key? if leave then
+    loop
+    150 1 do 150 i - circle-test
+      wait-vsync r-g-b-r
+      key? if leave then
+    loop
   key? until ;
 : n->bbbb ( n -- n )                     \ make byte mask from nibble $c->$FF00FF00
   dup  $8 and #21 lshift
@@ -917,10 +935,11 @@ L1-v-start       RK043FN48H_HEIGHT + 1- constant L1-v-end
    #4 n->bbbb ,  #5 n->bbbb ,  #6 n->bbbb ,  #7 n->bbbb ,
    #8 n->bbbb ,  #9 n->bbbb , #10 n->bbbb , #11 n->bbbb ,
   #12 n->bbbb , #13 n->bbbb , #14 n->bbbb , #15 n->bbbb , smudge
-' nibble-mask-tab constant nibble-mask-tab-adr   
+' nibble-mask-tab constant nibble-mask-tab-adr
 : pixel-4-mask ( n -- n )                \ cache table
-   2 lshift nibble-mask-tab-adr + @ 1-foldable ; 
-0 variable pixel-adr
+   2 lshift nibble-mask-tab-adr + @ 1-foldable ;
+
+lcd-fb1 @ variable pixel-adr             \ store current pixel address for font operations
 : pixel-line-4 ( n -- )                  \ draw 4 2-color pixel 1-forground 0 background
    $f and pixel-4-mask dup l1-c @ and    \ forground color
    swap not l1-bg @ and or               \ background color
@@ -928,21 +947,22 @@ L1-v-start       RK043FN48H_HEIGHT + 1- constant L1-v-end
 : pixel-line-2 ( n -- )                  \ draw 2 2-color pixel 1-forground 0 background
    $3 and pixel-4-mask dup l1-c @ and
    swap not l1-bg @ and or
-   pixel-adr @ 2 + h! ;
+   pixel-adr @ 4 + h! ;
 : pixel-line-6-y++ ( n -- )              \ draw 6 2-color pixel in a line starting from pixel-adr
    dup pixel-line-4                      \ update pixel adr to next line
    4 rshift pixel-line-2
    MAX_WIDTH pixel-adr +! ;              \ next line
 : draw-letter-6x8 ( d -- )               \ draw a 6x8 character
-   swap pixel-line-6-y++
-   dup #6 rshift pixel-line-6-y++
+   swap dup       pixel-line-6-y++       \ process lower word first
+   dup  #6 rshift pixel-line-6-y++
    dup #12 rshift pixel-line-6-y++
    dup #18 rshift pixel-line-6-y++
    dup #24 rshift pixel-line-6-y++
    #30 rshift swap 2 lshift or
    dup pixel-line-6-y++
    dup #6 rshift pixel-line-6-y++
-      #12 rshift pixel-line-6-y++ ;
+      #12 rshift pixel-line-6-y++
+   MAX_WIDTH -8 * 6 + pixel-adr +! ;     \ move to next character position
 MAX_HEIGHT 8 2 + / constant grid-space   \ grid space for 6x8 raster
 grid-space 1 -     constant grid-fill    \ fill width of grid
 MAX_WIDTH  grid-space 6 * - 2/ constant grid-h-start
@@ -956,12 +976,12 @@ grid-space 6 * constant grid-h-length
      grid-v-start l1-y ! i l1-x ! grid-v-length vline
    grid-space +loop ;
 : draw-raster-v-grid ( -- )              \ draw horizontal lines of raster - vertical grid
-   grid-v-start grid-space 8 * 1+ + 
+   grid-v-start grid-space 8 * 1+ +
    grid-v-start
    do
      i l1-y ! grid-h-start l1-x ! grid-h-length hline
    grid-space +loop ;
-   
+
 : draw-raster-6x8 ( -- )                 \ draw a 6x8 raster in the center of the screen
    draw-raster-h-grid
    draw-raster-v-grid ;
@@ -971,7 +991,7 @@ grid-space 6 * constant grid-h-length
    raster-pixel-x @ grid-space * grid-h-start + 1+ l1-x !
    raster-pixel-y @ grid-space * grid-v-start + 1+ l1-y !
    raster-pixel-x @ 1+ dup 5 >
-   if 1 raster-pixel-y +! drop 0 then 
+   if 1 raster-pixel-y +! drop 0 then
    raster-pixel-x ! ;
 : draw-raster-6x8-fill ( d -- d )        \ draw lsb a square and shift down
    pixel-coord
@@ -991,6 +1011,7 @@ grid-space 6 * constant grid-h-length
    draw-raster-6x8-line draw-raster-6x8-line
    draw-raster-6x8-line draw-raster-6x8-line
    draw-raster-6x8-line draw-raster-6x8-line 2drop ;
+
 : test-pixel-coord-line ( n -- )
    . raster-pixel-x @ . raster-pixel-y @ . l1-x @ . l1-y @ .
    pixel-coord ."  | "
@@ -999,20 +1020,20 @@ grid-space 6 * constant grid-h-length
 : trp ( -- )                             \ test pixel-coord
    cr
    0 raster-pixel-x ! 0 raster-pixel-y ! 49 0
-   do i test-pixel-coord-line loop ; 
+   do i test-pixel-coord-line loop ;
 : circle-palette-test ( -- )             \ animated color cycling circles
    demo 50 circle-test -1 palette-demo1 ;
 \ circle-palette-test
 : rbit,  ( rm rd -- )                    \ compile reverse bits instruction rm:operand reg rd:destination reg
-   over $f and
-   %1111101010010000 or h,
+   over $f and                           \ from ARMv7 achitecture A7.7.110 RBIT
+   %1111101010010000 or h,               \ opcode low word
    $f and 8 lshift swap $f and or
-   %1111000010100000 or h, ;
-: reverse ( w -- w )                     \ reverse bits
-   [ 6 6 rbit, ] 1-foldable inline ;
-: reverse-5:0 ( w -- w )                 \ reverse bit 5..0
-   rbit #26 rshift ;   
-: bit-reverse-5..0 ( w - w ) \ reverse b0-b5
+   %1111000010100000 or h, ;             \ opcode high word
+: reverse ( w -- w )                     \ reverse bits 31..0  b31 <->b0, b30<->b1,...
+   [ 6 6 rbit, ] 1-foldable inline ;     \ reverse tos in R6
+: bit-reverse-5..0 ( w -- w )            \ reverse bits 5..0
+   reverse #26 rshift 1-foldable inline ;
+: bit-reverse-5..0-slow ( w - w )        \ reverse b0-b5
    $3f and
    dup  $01 and #5 lshift
    over $02 and #3 lshift or
@@ -1021,11 +1042,22 @@ grid-space 6 * constant grid-h-length
    over $10 and #3 rshift or
    swap $20 and #5 rshift or ;
 : 6dlshift ( d -- d )                    \ shift double left by 6 bits
-  #64 0 ud* ;
+  #64 0 ud* 2-foldable ;
 : bit-5..0-rev-append ( w d -- d )       \ reverse bits 5..0 and append them to double word on stack
   6dlshift rot bit-reverse-5..0  rot or swap ;
-: genchar ( l1 l2 l3 l4 l5 l6 l7 l8 -- d ) \ generate character bitmap line by line
-   bit-reverse-5..0 0                    \ line 8 
+: genchar ( l1 l2 l3 l4 l5 l6 l7 l8 -- d )
+   \ generate 6x8 character bitmap line by line
+   \ l1 - top most line
+   \ l8 - bottom most line
+   \ top most left pixel is d:bit0
+   \ bottom most pixel is d:bit 47
+   \ returns 48 bit double word bitmap for character
+   \ line 1 b00->b05, line 2 b06->b11
+   \ line 3 b12->b17, line 4 b18->b23
+   \ line 5 b24->b29, line 6 b30->b35
+   \ line 7 b36->b41, line 8 b42->b47
+
+   bit-reverse-5..0 0                    \ line 8
    bit-5..0-rev-append                   \ line 7
    bit-5..0-rev-append                   \ line 6
    bit-5..0-rev-append                   \ line 5
@@ -1033,6 +1065,9 @@ grid-space 6 * constant grid-h-length
    bit-5..0-rev-append                   \ line 3
    bit-5..0-rev-append                   \ line 2
    bit-5..0-rev-append ;                 \ line 1
+: genchar, ( l1 l2 l3 l4 l5 l6 l7 l8 -- )
+                                         \ compile char image to memory
+   genchar swap , , ;
 
 \ some colors in 8-8-4 palette
 \ red b7..5 green b4..2 blue b1..0
@@ -1051,7 +1086,58 @@ grid-space 6 * constant grid-h-length
    %100010   \ b30,b31,b32,b33,b34,b35
    %000000   \ b36,b37,b38,b39,b40,b41
    %000000   \ b36,b37,b38,b39,b40,b41
-   genchar 2constant cg-big-a                          
+   genchar 2constant cg-big-a
+\ Character 'B'
+   %111100   \ b00,b01,b02,b03,b04,b05
+   %100010   \ b06,b07,b08,b09,b10,b11
+   %111100   \ b12,b13,b14,b15,b16,b17
+   %100010   \ b18,b19,b20,b21,b22,b23
+   %100010   \ b24,b25,b26,b27,b28,b29
+   %111100   \ b30,b31,b32,b33,b34,b35
+   %000000   \ b36,b37,b38,b39,b40,b41
+   %000000   \ b36,b37,b38,b39,b40,b41
+   genchar 2constant cg-big-b
+\ Character 'C'
+   %001100   \ b00,b01,b02,b03,b04,b05
+   %010010   \ b06,b07,b08,b09,b10,b11
+   %100000   \ b12,b13,b14,b15,b16,b17
+   %100000   \ b18,b19,b20,b21,b22,b23
+   %010010   \ b24,b25,b26,b27,b28,b29
+   %001100   \ b30,b31,b32,b33,b34,b35
+   %000000   \ b36,b37,b38,b39,b40,b41
+   %000000   \ b36,b37,b38,b39,b40,b41
+   genchar 2constant cg-big-c
+\ Character 'D'
+   %111100   \ b00,b01,b02,b03,b04,b05
+   %100010   \ b06,b07,b08,b09,b10,b11
+   %100010   \ b12,b13,b14,b15,b16,b17
+   %100010   \ b18,b19,b20,b21,b22,b23
+   %100010   \ b24,b25,b26,b27,b28,b29
+   %111100   \ b30,b31,b32,b33,b34,b35
+   %000000   \ b36,b37,b38,b39,b40,b41
+   %000000   \ b36,b37,b38,b39,b40,b41
+   genchar 2constant cg-big-d
+\ Character 'E'
+   %111110   \ b00,b01,b02,b03,b04,b05
+   %100000   \ b06,b07,b08,b09,b10,b11
+   %111110   \ b12,b13,b14,b15,b16,b17
+   %100000   \ b18,b19,b20,b21,b22,b23
+   %100000   \ b24,b25,b26,b27,b28,b29
+   %111110   \ b30,b31,b32,b33,b34,b35
+   %000000   \ b36,b37,b38,b39,b40,b41
+   %000000   \ b36,b37,b38,b39,b40,b41
+   genchar 2constant cg-big-e
+\ Character 'F'
+   %111110   \ b00,b01,b02,b03,b04,b05
+   %100000   \ b06,b07,b08,b09,b10,b11
+   %111110   \ b12,b13,b14,b15,b16,b17
+   %100000   \ b18,b19,b20,b21,b22,b23
+   %100000   \ b24,b25,b26,b27,b28,b29
+   %100000   \ b30,b31,b32,b33,b34,b35
+   %000000   \ b36,b37,b38,b39,b40,b41
+   %000000   \ b36,b37,b38,b39,b40,b41
+   genchar 2constant cg-big-f
+
 : test-genchar                           \ test genchar
    demo                                  \ init display
    layer1 lcd-layer-color-map-8-8-4      \ colormap rgb 8-8-4
@@ -1068,6 +1154,117 @@ grid-space 6 * constant grid-h-length
    %000000   \ b36,b37,b38,b39,b40,b41
    genchar
    draw-raster-6x8-letter ;
+
+$5C constant backslash
+: backslash  ( -- )
+   $5C emit ;
+
+\ ********** Font editor ****************
+#8 #128 * constant font-buffer-size      \ size of font buffer : 128 char a 8 byte
+font-buffer-size BUFFER: font-buffer     \ font buffer size 1 KiByte 128 chars a 8 byte
+0 variable font-edit-x
+0 variable font-edit-y
+blue variable font-edit-selector-frame-color
+[char] A variable font-edit-current-char \ current character number
+: font-buffer-init ( -- )
+   0 font-buffer-size font-buffer cfill ;
+: font-editor-init ( )                   \ init display, font-buffer
+   demo layer1 lcd-layer-color-map-8-8-4 ;
+: c-emit ( c -- ) 
+   dup #32 > and dup #127 < and
+   dup 0= #32 and or emit ; 
+: dump-font-head ( n -- )                \ dump character header for font
+   base @ swap
+   cr backslash space dup decimal . space [char] - emit space c-emit cr
+   base ! ;
+: dump-char-def ( a -- )                 \ dump character definition at address
+   2 spaces
+   2@ swap $. x.8 ."  , "
+   $. x.8 ."  ," cr ;
+: dump-font-buffer  ( -- )               \ dump font buffer
+   #128 #0 do
+     i dump-font-head 
+     i #3 lshift font-buffer + dump-char-def
+   loop ;
+: font-edit-mark-active-pixel  ( -- )
+   \ grid-h-start grid-v-start grid-space 
+   font-edit-x @ grid-space * grid-h-start +
+   font-edit-y @ grid-space * grid-v-start +
+   move-to font-edit-selector-frame-color @ color!
+   grid-space 0        line
+   0 grid-space        line
+   grid-space negate 0 line
+   0 grid-space negate line ;
+: font-edit-char-adr ( n -- a )
+   $7f and #3 lshift font-buffer + ;
+: font-edit-current-char-adr ( -- a )    \ return current character bitmap address
+   font-edit-current-char @ font-edit-char-adr ;
+: font-edit-current-char. ( -- )         \ print current char to console
+   ." current char " font-edit-current-char @ dup c-emit space x.2 cr ;
+: font-edit-plot-current-char ( -- )
+   font-edit-current-char-adr
+   2@ draw-raster-6x8-letter ;
+: font-edit-current-pixel-mask ( -- d )
+   font-edit-x @ font-edit-y @ #6 * +
+   d2** ;
+: font-edit-toggle-pixel ( -- )          \ toggle current selected pixel in font editor
+    ." toggle "
+   font-edit-current-char-adr dup 2@ .s
+   font-edit-current-pixel-mask .s dxor .s
+   rot .s 2! ;
+: font-edit-cursor-up ( -- )
+   font-edit-y @ 1- $7 and font-edit-y ! ;
+: font-edit-cursor-down ( -- )
+   font-edit-y @ 1+ $7 and font-edit-y ! ;
+: font-edit-cursor-left ( -- )
+   font-edit-x @ 1- dup 0< 6 * - font-edit-x ! ;
+: font-edit-cursor-right ( -- )
+   font-edit-x @ 1+ dup 5 > 6 * + font-edit-x ! ;
+: font-edit-prev-char ( -- )
+   font-edit-current-char @ 1- $7f and font-edit-current-char !
+   font-edit-current-char. ;
+: font-edit-next-char ( -- )
+   font-edit-current-char @ 1+ $7f and font-edit-current-char ! 
+   font-edit-current-char. ;
+: font-edit-exit ( -- ) ; \ nothing to be done yet
+: font-editor-menu ( -- f )
+     key case
+       [char] w of font-edit-cursor-up    0 endof
+       [char] a of font-edit-cursor-left  0 endof
+       [char] s of font-edit-cursor-down  0 endof
+       [char] d of font-edit-cursor-right 0 endof
+       [char] i of font-buffer-init       0 endof
+       [char] - of font-edit-prev-char    0 endof
+       [char] + of font-edit-next-char    0 endof
+            #32 of font-edit-toggle-pixel 0 endof
+            #27 of font-edit-exit        -1 endof
+            0 swap
+     endcase ." menu " dup . ;
+: font-editor-char-board ( -- )
+   lcd-fb1 @ pixel-adr !                 \ start address
+   $ff color! $0 bg!                     \ setup colors
+   #16 0 do
+     #8 0 do
+       i j #3 lshift + font-edit-char-adr 2@ draw-letter-6x8
+     loop
+     #-8 #6 * MAX_WIDTH #8 * + pixel-adr +!     \ start with next line
+   loop ;   
+: font-editor-6x8-update ( -- )          \ update display
+   232 color! draw-raster-6x8
+   font-edit-mark-active-pixel
+   font-edit-current-char-adr 2@
+   green color!
+   draw-raster-6x8-letter
+   font-editor-char-board
+   font-edit-current-char. ;
+: font-editor-6x8 ( -- )
+   font-editor-init                      \ fill font-buffer
+   font-editor-6x8-update
+   begin
+     font-editor-menu
+     font-editor-6x8-update
+   until ." adios " cr ;
+\ ********** raster color selector ******
 : raster-color-up ( -- )                 \ next color
   l1-c @ 1+ $ff and dup . cr color! draw-raster-6x8 ;
 : raster-color-down ( -- )               \ previous color
@@ -1084,4 +1281,7 @@ grid-space 6 * constant grid-h-length
    demo 0 fill $ff color!
    $0 bg!
    lcd-fb1 @ pixel-adr !
-   cg-big-a draw-letter-6x8 ;
+   cg-big-a draw-letter-6x8 cg-big-b draw-letter-6x8
+   cg-big-c draw-letter-6x8 cg-big-d draw-letter-6x8
+   cg-big-e draw-letter-6x8 cg-big-d draw-letter-6x8
+;
