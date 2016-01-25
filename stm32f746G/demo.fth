@@ -1182,6 +1182,7 @@ blue variable font-edit-selector-frame-color
    2@ swap $. x.8 ."  , "
    $. x.8 ."  ," cr ;
 : dump-font-buffer  ( -- )               \ dump font buffer
+   ." create font6x8 " cr
    #128 #0 do
      i dump-font-head 
      i #3 lshift font-buffer + dump-char-def
@@ -1233,9 +1234,10 @@ blue variable font-edit-selector-frame-color
        [char] a of font-edit-cursor-left  0 endof
        [char] s of font-edit-cursor-down  0 endof
        [char] d of font-edit-cursor-right 0 endof
-       [char] i of font-buffer-init       0 endof
+       [char] I of font-buffer-init       0 endof
        [char] - of font-edit-prev-char    0 endof
        [char] + of font-edit-next-char    0 endof
+       [char] p of dump-font-buffer       0 endof
             #32 of font-edit-toggle-pixel 0 endof
             #27 of font-edit-exit        -1 endof
             0 swap
