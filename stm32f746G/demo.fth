@@ -1179,7 +1179,7 @@ blue variable font-edit-selector-frame-color
    base ! ;
 : dump-char-def ( a -- )                 \ dump character definition at address
    2 spaces
-   2@ swap $. x.8 ."  , "
+   2@ $. x.8 ."  , "                     \ 2@ high word is on lower address
    $. x.8 ."  ," cr ;
 : dump-font-buffer  ( -- )               \ dump font buffer
    ." create font6x8 " cr
