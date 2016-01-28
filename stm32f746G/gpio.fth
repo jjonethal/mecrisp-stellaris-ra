@@ -1,6 +1,9 @@
 \ gpio.fth
-$40020000 constant GPIO-BASE
-: gpio ( n -- adr )
+\ gpio driver for stm32f746
+\ require utils.fth
+
+$40020000 constant GPIO-BASE             \ base address for gpio ports
+: gpio ( n -- adr )                      \ calculate base address for port bank n: 0-portA 1-portb ...
    $f and #10 lshift GPIO-BASE or 1-foldable ;
 $00         constant GPIO_MODER
 $04         constant GPIO_OTYPER
@@ -13,18 +16,22 @@ $1C         constant GPIO_LCKR
 $20         constant GPIO_AFRL
 $24         constant GPIO_AFRH
 
+\ pin is an identifier for io pin consisting of gpio bank base address ored with 
+\ pin number. Bank base address is obtained masking out lowest 4 bits.
+\ PA3 : pin id for port a bank base + 3 for pin number $40020003
+
 : pin#  ( pin -- nr )                    \ get pin number from pin
    $f and 1-foldable ;
 : port-base  ( pin -- adr )              \ get port base from pin
    $f bic 1-foldable ;
 : port# ( pin -- n )                     \ return gpio port number A:0 .. K:10
    #10 rshift $f and 1-foldable ;
-: mode-mask  ( pin -- m )
+: mode-mask  ( pin -- m )                \ generate bit mask for gpio_moder depending on pin nr
    #3 swap pin# 2* lshift 1-foldable ;
 : mode-shift ( mode pin -- mode<< )      \ shift mode by pin number * 2 for gpio_moder
    pin# 2* lshift 2-foldable ;
-: set-mask! ( v m a -- )
-   tuck @ swap bic rot or swap ! ;
+: set-mask! ( v m a -- )                 \ set new value at masked position eg $A0 $f0 @a:$1234 setmask -- @a:12A4   
+   tuck @ swap bic rot or swap ! ;       \ v must be clean
 : bsrr-on  ( pin -- v )                  \ gpio_bsrr mask pin on
    pin# 1 swap lshift 1-foldable ;
 : bsrr-off  ( pin -- v )                 \ gpio_bsrr mask pin off
@@ -34,7 +41,7 @@ $24         constant GPIO_AFRH
 : af-reg  ( pin -- adr )                 \ alternate function register address for pin
    dup $8 and 2/ swap
    port-base GPIO_AFRL + + 1-foldable ;
-: af-shift ( af pin -- af )
+: af-shift ( af pin -- af )              \ shift altenate function number by pin * 4
    pin# #2 lshift swap lshift 2-foldable ;
 : gpio-mode! ( mode pin -- )
    tuck mode-shift swap dup
