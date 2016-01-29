@@ -3,18 +3,16 @@
    dup negate and 1-
    clz negate #32 + 1-foldable ;
 : bits@  ( m adr -- b )                  \ get bitfield at masked position e.g $1234 v ! $f0 v bits@ $3 = . (-1)
-   @ over and swap cnt0 rshift ;
+   @ over and swap cnt0 rshift ;         \ and shift it down 
 : bits!  ( n m adr -- )                  \ set bitfield value n to value at masked position
-   >R dup >R cnt0 lshift                 \ shift value to proper position
+   >R dup >R cnt0 lshift                 \ shift value n to proper position
    R@ and                                \ mask out unrelated bits
    R> not R@ @ and                       \ invert bitmask and maskout new bits in current value
    or r> ! ;                             \ apply value and store back
-                                         \ example :
-                                         \   RCC_PLLCFGR.PLLN = 400 -> #400 $1FF #6 lshift RCC_PLLCFGR bits!
-                                         \ PLLN: bit[14:6] -> mask :$1FF << 6 = $7FC0
-                                         \ #400 $7FC0 RCC_PLLCFGR bits!
-                                         \ $1FF #6 lshift constant PLLN
-                                         \ #400 PLLN RCC_PLLCFGR bits!
+                                         \ example : set RCC_PLLCFGR.PLLN to #400
+                                         \   $1FF #6 lshift constant PLLN
+                                         \   $40023804      constant RCC_PLLCFGR
+                                         \   #400 PLLN RCC_PLLCFGR bits!
 : u.8 ( n -- )                           \ unsigned output 8 digits
    0 <# # # # # # # # # #> type ;
 : x.8 ( n -- )                           \ hex output 8 digits
@@ -33,3 +31,12 @@
    rot xor -rot xor swap 4-foldable ;
 : $. ( -- )                              \ print a dollar sign 
    [char] $ emit ;
+: rbit,  ( rm rd -- )                    \ compile reverse bits instruction rm:operand reg rd:destination reg
+   over $f and                           \ from ARMv7 achitecture A7.7.110 RBIT
+   %1111101010010000 or h,               \ opcode low word
+   $f and 8 lshift swap $f and or
+   %1111000010100000 or h, ;             \ opcode high word
+: reverse ( w -- w )                     \ reverse bits 31..0  b31 <->b0, b30<->b1,...
+   [ 6 6 rbit, ] 1-foldable inline ;     \ reverse tos in R6
+: bit-reverse-5..0 ( w -- w )            \ reverse bits 5..0
+   reverse #26 rshift 1-foldable inline ;

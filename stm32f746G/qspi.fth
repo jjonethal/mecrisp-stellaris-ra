@@ -31,6 +31,14 @@ PD13 constant QSPI_D3
    AF9  QSPI_D1  gpio-mode-af
    AF9  QSPI_D2  gpio-mode-af
    AF9  QSPI_D3  gpio-mode-af ;
+: qspi-gpio-init-sw ( -- )
+   QSPI_NCS gpio-mode-output
+   QSPI_CLK gpio-mode-output
+   QSPI_D0  gpio-mode-output
+   QSPI_D1  gpio-mode-input 
+   QSPI_D2  gpio-mode-output
+   QSPI_D3  gpio-mode-output ;
+
 : qspi-send-cmd ( cmd -- ) ;
 : qspi-read ( n adr -- ) ;
 : qspi-write-data ( d n a -- ) ;
