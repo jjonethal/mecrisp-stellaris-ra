@@ -1155,39 +1155,60 @@ grid-space 6 * constant grid-h-length
    genchar
    draw-raster-6x8-letter ;
 
-$5C constant backslash
-: backslash  ( -- )
+: backslash  ( -- )                      \ output a backslash to terminal
    $5C emit ;
 
-\ ********** Font editor ****************
+\ ********** Font editor 6x8 ************
+\ fonteditor for 6x8 characters 
+\ supports 128 characters with 64 bit per
+\ character - 2 cells
+\ in memory high word stored
+\ below low word
+\   +-------------+-----------+
+\   |  address n  | high word |
+\   +-------------+-----------+
+\   | address n+4 | low word  |
+\   +-------------+-----------+
+\ character consists of 8 lines containing
+\ 6 pixel each
+\ least significant bit is left most pixel
+\   %111110   b00,b01,b02,b03,b04,b05
+\   %100000   b06,b07,b08,b09,b10,b11
+\   %111110   b12,b13,b14,b15,b16,b17
+\   %100000   b18,b19,b20,b21,b22,b23
+\   %100000   b24,b25,b26,b27,b28,b29
+\   %100000   b30,b31,b32,b33,b34,b35
+\   %000000   b36,b37,b38,b39,b40,b41
+\   %000000   b42,b43,b44,b45,b46,b47
+\
 #8 #128 * constant font-buffer-size      \ size of font buffer : 128 char a 8 byte
 font-buffer-size BUFFER: font-buffer     \ font buffer size 1 KiByte 128 chars a 8 byte
-0 variable font-edit-x
-0 variable font-edit-y
+0 variable font-edit-x                   \ current pixel cursor x-coordinate (0..5)
+0 variable font-edit-y                   \ current pixel cursor y-coordinate (0..7) 
 blue variable font-edit-selector-frame-color
 [char] A variable font-edit-current-char \ current character number
 : font-buffer-init ( -- )
    0 font-buffer-size font-buffer cfill ;
 : font-editor-init ( )                   \ init display, font-buffer
    demo layer1 lcd-layer-color-map-8-8-4 ;
-: c-emit ( c -- ) 
+: c-emit ( c -- )                        \ emit character only if printable character space otherwise
    dup #32 > and dup #127 < and
    dup 0= #32 and or emit ; 
 : dump-font-head ( n -- )                \ dump character header for font
-   base @ swap
+   base @ swap                           \ show character number and ascii char
    cr backslash space dup decimal . space [char] - emit space c-emit cr
    base ! ;
-: dump-char-def ( a -- )                 \ dump character definition at address
+: dump-char-def ( a -- )                 \ dump character bitmap at address
    2 spaces
    2@ $. x.8 ."  , "                     \ 2@ high word is on lower address
    $. x.8 ."  ," cr ;
-: dump-font-buffer  ( -- )               \ dump font buffer
+: dump-font-buffer  ( -- )               \ dump font buffer to terminal for backup
    ." create font6x8 " cr
    #128 #0 do
      i dump-font-head 
      i #3 lshift font-buffer + dump-char-def
    loop ;
-: font-edit-mark-active-pixel  ( -- )
+: font-edit-mark-active-pixel  ( -- )    \ draw square around current pixel
    \ grid-h-start grid-v-start grid-space 
    font-edit-x @ grid-space * grid-h-start +
    font-edit-y @ grid-space * grid-v-start +
@@ -1202,10 +1223,10 @@ blue variable font-edit-selector-frame-color
    font-edit-current-char @ font-edit-char-adr ;
 : font-edit-current-char. ( -- )         \ print current char to console
    ." current char " font-edit-current-char @ dup c-emit space x.2 cr ;
-: font-edit-plot-current-char ( -- )
+: font-edit-plot-current-char ( -- )     \ output big character on display
    font-edit-current-char-adr
    2@ draw-raster-6x8-letter ;
-: font-edit-current-pixel-mask ( -- d )
+: font-edit-current-pixel-mask ( -- d )  \ double bitmsk corresponding curren pixel
    font-edit-x @ font-edit-y @ #6 * +
    d2** ;
 : font-edit-toggle-pixel ( -- )          \ toggle current selected pixel in font editor
@@ -1213,22 +1234,22 @@ blue variable font-edit-selector-frame-color
    font-edit-current-char-adr dup 2@ .s
    font-edit-current-pixel-mask .s dxor .s
    rot .s 2! ;
-: font-edit-cursor-up ( -- )
+: font-edit-cursor-up ( -- )             \ move pixel cursor up
    font-edit-y @ 1- $7 and font-edit-y ! ;
-: font-edit-cursor-down ( -- )
+: font-edit-cursor-down ( -- )           \ move pixel cursor down
    font-edit-y @ 1+ $7 and font-edit-y ! ;
-: font-edit-cursor-left ( -- )
+: font-edit-cursor-left ( -- )           \ move pixel cursor left
    font-edit-x @ 1- dup 0< 6 * - font-edit-x ! ;
-: font-edit-cursor-right ( -- )
+: font-edit-cursor-right ( -- )          \ move pixel cursor right
    font-edit-x @ 1+ dup 5 > 6 * + font-edit-x ! ;
-: font-edit-prev-char ( -- )
+: font-edit-prev-char ( -- )             \ select previous char to edit
    font-edit-current-char @ 1- $7f and font-edit-current-char !
    font-edit-current-char. ;
-: font-edit-next-char ( -- )
+: font-edit-next-char ( -- )             \ select next chracter to edit
    font-edit-current-char @ 1+ $7f and font-edit-current-char ! 
    font-edit-current-char. ;
 : font-edit-exit ( -- ) ; \ nothing to be done yet
-: font-editor-menu ( -- f )
+: font-editor-menu ( -- f )              \ terminal menu for fonteditor 
      key case
        [char] w of font-edit-cursor-up    0 endof
        [char] a of font-edit-cursor-left  0 endof
@@ -1285,5 +1306,16 @@ blue variable font-edit-selector-frame-color
    lcd-fb1 @ pixel-adr !
    cg-big-a draw-letter-6x8 cg-big-b draw-letter-6x8
    cg-big-c draw-letter-6x8 cg-big-d draw-letter-6x8
-   cg-big-e draw-letter-6x8 cg-big-d draw-letter-6x8
-;
+   cg-big-e draw-letter-6x8 cg-big-d draw-letter-6x8 ;
+
+\ ********** sprite functions ***********
+: sprite-gen
+0 0 move-to
+0 color!
+#10 #10 fill-rect ;
+ 
+\ create sprite
+\ 10 , 10 , \ sprite 10 wide 10 height
+
+\ : draw-sprite ( a -- )               \ draw sprite at current position
+
