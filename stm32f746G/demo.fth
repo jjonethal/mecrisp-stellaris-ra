@@ -846,8 +846,12 @@ L1-v-start       RK043FN48H_HEIGHT + 1- constant L1-v-end
    dup #8 lshift or dup #16 lshift or ;
 : color! ( c -- )
    $ff and b->bbbb l1-c ! ;
-: bg! ( c -- )
+: color@ ( -- c )                        \ return current color
+   l1-c c@ ;
+: bg! ( c -- )                           \ set back ground
    $ff and b->bbbb l1-bg ! ;
+: bg@ ( -- c )
+  l1-bg c@ ;
 : move-to ( x y -- )                     \ move graphics cursor to
    y-limit l1-y !
    x-limit l1-x ! ;
@@ -1316,6 +1320,60 @@ blue variable font-edit-selector-frame-color
  
 \ create sprite
 \ 10 , 10 , \ sprite 10 wide 10 height
+0 variable c-x
+0 variable c-y
+0 variable c-r
+0 variable c-x2
+0 variable c-y2
+0 variable c-r2
 
-\ : draw-sprite ( a -- )               \ draw sprite at current position
+: circle-30 ( -- )  \ draw white circle 8 bit gray scale white antialias
+  40 -40 do
+  40 -40 do 
+  i i * j j * + 900 - negate dup 0 > and 2 *
+  255 min color! i c-x @ + j c-y @ + move-to draw-pixel
+  loop loop ;
+: gray-scale ( -- )                      \ gray scale clolormap on layer1
+   layer1 lcd-layer-colormap-gray-scale ;
+: fade-out-step ( -- )                   \ fade out all pixel in layer 1 
+   lcd-fb1 @ dup MAX_WIDTH MAX_HEIGHT * + swap do
+     i c@ dup 0= not + i c!
+   loop ;
+: t2
+   demo gray-scale 0 fill
+   50 c-x !
+   50 c-y !
+   begin  fade-out-step c-x @ 1+ dup 430 < and dup 0= 50 and or c-x ! circle-30 key? until ;   
+: copy-1 ( sa da -- sa da )              \ copy 1 pixel from source to destination
+   over c@ over c! 1+ swap 1+ swap ;
+: copy-4 ( sa da -- sa da )              \ copy 4 pixel from source to destination
+   over @ over ! 4 + swap 4 + swap ;
+: copy-16 ( sa da -- sa da )             \ copy 16 pixel
+   copy-4 copy-4 copy-4 copy-4 ;
+: copy-64 ( sa da -- sa da  )            \ copy 64 pixel
+   copy-16 copy-16 copy-16 copy-16 ;
+: next-line ( sa da w -- sa da )         \ skip to next line w is sprite width
+   - MAX_WIDTH + ;
+: sprite64-line ( sa da -- sa da )       \ draw a 64 pixel wide sprite line
+   copy-64 #64 next-line ;
+: sprite64-4-line ( sa da -- sa da )
+  sprite64-line sprite64-line sprite64-line sprite64-line ;
+: sprite64-16-line ( sa da -- sa da )
+  sprite64-line sprite64-4-line sprite64-4-line sprite64-4-line ;
+: sprite64-64-line ( sa da -- sa da )
+  sprite64-line sprite64-16-line sprite64-16-line sprite64-16-line ;
+: blend-1  ( sa da -- sa da )            \ blend 1 8-bit pixel from source to destination
+   over c@ dup 0<> if over c! then       \ color 0 is transparent
+   1+ swap 1+ swap ;
+
+: blend-mask ( fg -- m )
+   dup  $ff and 0<> $FF and
+   over $ff00 and 0<> $ff00 and or
+   over $ff0000 and 0<> $ff0000 and or
+   swap $ff000000 and 0<> $ff000000 and or ;
+      
+: blend-4  ( sa da -- sa da )            \ blend 4 pixel color index 0 is transparent
+   over @ over @ over blend-mask
+   tuck not and -rot and or over ! 
+   4 + swap 4 + swap ;
 

@@ -40,3 +40,8 @@
    [ 6 6 rbit, ] 1-foldable inline ;     \ reverse tos in R6
 : bit-reverse-5..0 ( w -- w )            \ reverse bits 5..0
    reverse #26 rshift 1-foldable inline ;
+: set-mask! ( v m a -- )                 \ set new value at masked position eg $A0 $f0 @a:$1234 setmask -- @a:12A4   
+   tuck @ swap bic rot or swap ! ;       \ v must be clean
+: 2^ ( n -- n )                          \ 2^n
+   1 swap lshift 1-foldable ;
+
