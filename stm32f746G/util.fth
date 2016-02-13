@@ -1,4 +1,10 @@
-\ util.fth
+\ file: util.fth
+\ author : Jean Jonethal
+\ provides some general useful utilities
+\
+\ 2016-02-09 add history to this file
+\  history in chronologic descending order
+
 : cnt0   ( m -- b )                      \ count trailing zeros with hw support
    dup negate and 1-
    clz negate #32 + 1-foldable ;
@@ -13,6 +19,34 @@
                                          \   $1FF #6 lshift constant PLLN
                                          \   $40023804      constant RCC_PLLCFGR
                                          \   #400 PLLN RCC_PLLCFGR bits!
+: bits2!  ( n m adr -- )                 \ set bitfield value n to value at masked position
+   >R dup >R cnt0 lshift                 \ shift value n to proper position
+   R@ and                                \ mask out unrelated bits
+   R> R@ @ swap bic                      \ invert bitmask and maskout new bits in current value
+   or r> ! ;                             \ apply value and store back
+                                         \ example : set RCC_PLLCFGR.PLLN to #400
+                                         \   $1FF #6 lshift constant PLLN
+                                         \   $40023804      constant RCC_PLLCFGR
+                                         \   #400 PLLN RCC_PLLCFGR bits!
+
+\ bits! in assembler
+\ ldmia r7 { r1 r0 }  \ r1 - m r0 - n
+\ negs r2 r1
+\ ands r2 r1
+\ subs r2 r2 1
+\ clz r2 r2 
+\  ..
+\ negs r2 r2
+\ adds r2 #32
+\ lsls r0 r2
+\ ands r0 r1
+\ ldr r2 [ r6 #0 ]
+\ bics r2 r1
+\ orrs r2 r0
+\ str r2 [ r6 0 ]
+\ ldmia r7 { r6 }
+\  bx lr 
+ 
 : u.8 ( n -- )                           \ unsigned output 8 digits
    0 <# # # # # # # # # #> type ;
 : x.8 ( n -- )                           \ hex output 8 digits

@@ -4,25 +4,6 @@
 \ require util.fth
 \ require gpio.fth
 
-\ ***** bitfield utility functions ******
-: cnt0   ( m -- b )                      \ count trailing zeros with hw support
-   dup negate and 1-
-   clz negate #32 + 1-foldable ;
-: bits@  ( m adr -- b )                  \ get bitfield at masked position e.g $1234 v ! $f0 v bits@ $3 = . (-1)
-   @ over and swap cnt0 rshift ;
-: bits!  ( n m adr -- )                  \ set bitfield value n to value at masked position
-   >R dup >R cnt0 lshift                 \ shift value to proper position
-   R@ and                                \ mask out unrelated bits
-   R> not R@ @ and                       \ invert bitmask and maskout new bits in current value
-   or r> ! ;                             \ apply value and store back
-                                         \ example :
-                                         \   RCC_PLLCFGR.PLLN = 400 -> #400 $1FF #6 lshift RCC_PLLCFGR bits!
-                                         \ PLLN: bit[14:6] -> mask :$1FF << 6 = $7FC0
-                                         \ #400 $7FC0 RCC_PLLCFGR bits!
-                                         \ $1FF #6 lshift constant PLLN
-                                         \ #400 PLLN RCC_PLLCFGR bits!
-
-
 \ QSPI_NCS - PB6  - AF10
 \ QSPI_CLK - PB2  - AF9
 \ QSPI_D0  - PD11 - AF9
@@ -112,12 +93,45 @@ PD13 constant QSPI_D3
 : q-d3!  ( f -- )                        \ set qspi D3 line
    0= $FFFF xor QSPI_D3 pin-onff and QSPI_D3 gpio-bsrr ! ;
 
-: q-set-mode-bb1  ( -- )                 \ setup one wire bit bang spi mode
+: q-set-mode-bb1  ( -- )                 \ setup gpio ports for one wire bit bang spi mode
    q-cs-1 QSPI_NCS gpio-output
    q-ck-0 QSPI_CLK gpio-output
    q-d0-0 QSPI_D0  gpio-output 
    q-d1-1 QSPI_D1  gpio-input
    q-d2-1 QSPI_D2  gpio-output           \  /W    - no write protect
    q-d3-1 QSPI_D3  gpio-output ;         \  /HOLD - no hold 
-
-
+: q-bb1-idle ( -- )                      \ set bit bang spi protocol to idle 
+   q-cs-1 q-ck-0 q-d0-0 q-d1-1
+   q-d2-1 q-d3-1 ;
+: q-bb1-delay  ( ) ;                     \ add some delay to garanty clock timing
+: q-bb1-f! ( c -- c )                    \ send a bit 
+   q-ck-0 dup $80 and q-d0! q-bb1-delay
+   q-ck-1 q-bb1-delay 2* ;
+: q-bb1-f@ ( c -- c )                    \ receive bit shift in a bit into a character
+   q-ck-0 q-bb1-delay 2* q-d1@ 1 and or
+   q-bb1-delay q-ck-1 ;
+: q-bb1-c! ( c -- )                      \ transmit 1 byte in spi mode
+   q-bb1-f! q-bb1-f! q-bb1-f! q-bb1-f!
+   q-bb1-f! q-bb1-f! q-bb1-f! q-bb1-f!
+   drop ;
+: q-bb1-c@ ( c -- )                      \ receive 1 byte in spi mode
+   0 q-bb1-f@ q-bb1-f@ q-bb1-f@ q-bb1-f@
+   q-bb1-f@ q-bb1-f@ q-bb1-f@ q-bb1-f@ ;
+: q-bb1-start  ( -- )                    \ start spi transfer
+   q-set-mode-bb1 q-cs-0 ;
+: q-bb1-read-id  ( -- )                  \ output device id to terminal
+   q-bb1-start $9E q-bb1-c!
+   #20 0 do q-bb1-c@ x.2 space loop q-cs-1 ;
+: q-bb1-adr!  ( a -- )                   \ send 24 bit address
+   dup #16 lshift q-bb1-c!
+   dup  #8 lshift q-bb1-c!
+                  q-bb1-c! ;   
+: q-bb1-@  ( a -- n )                    \ read a word from qspi memory from address a
+   q-bb1-start $03 q-bb1-c!
+   q-bb1-adr! q-bb1-c@ q-bb1-c@ #8 lshift or 
+   q-bb1-c@ #16 lshift or q-bb1-c@ #24 lshift or q-cs-1 ;
+: q-bb1-read ( qs l a -- )               \ read memory block from qspi to destination ram a
+   q-bb1-start $03 q-bb1-c!
+   rot q-bb1-adr! tuck + swap
+   ?do q-bb1-c@ i c! loop q-cs-1 ;
+ 
