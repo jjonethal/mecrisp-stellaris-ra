@@ -130,8 +130,16 @@ PD13 constant QSPI_D3
    q-bb1-start $03 q-bb1-c!
    q-bb1-adr! q-bb1-c@ q-bb1-c@ #8 lshift or 
    q-bb1-c@ #16 lshift or q-bb1-c@ #24 lshift or q-cs-1 ;
-: q-bb1-read ( qs l a -- )               \ read memory block from qspi to destination ram a
+: q-bb1-read ( l a qa -- )               \ read memory block length l from qspi address qa to destination ram a
    q-bb1-start $03 q-bb1-c!
-   rot q-bb1-adr! tuck + swap
+   q-bb1-adr! tuck + swap
    ?do q-bb1-c@ i c! loop q-cs-1 ;
- 
+: q-bb1-write-enable ( -- )              \ send write enable
+   q-bb1-start $06 q-bb1-c! q-cs-1 ;
+: q-bb1-erase-sub-sector ( a -- )        \ erase subsector at qspi adr a , write enable must vbe sent before
+   q-bb1-start $20 q-bb1-c!
+   q-bb1-adr! q-cs-1 ;
+: q-bb1-write ( l a qa -- )              \ write memory block length l from qspi address qa to destination ram a
+   q-bb1-start $02 q-bb1-c!              \ write enable must be sent before
+   q-bb1-adr! tuck + swap
+   ?do i c@ q-bb1-c! loop q-cs-1 ;
