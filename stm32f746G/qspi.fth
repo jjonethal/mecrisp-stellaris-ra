@@ -100,6 +100,36 @@ PD13 constant QSPI_D3
    q-d1-1 QSPI_D1  gpio-input
    q-d2-1 QSPI_D2  gpio-output           \  /W    - no write protect
    q-d3-1 QSPI_D3  gpio-output ;         \  /HOLD - no hold 
+: q-set-mode-bb2-input ( -- )            \ dual input mode
+   QSPI_D0  gpio-input
+   QSPI_D1  gpio-input
+   q-d2-1 QSPI_D2  gpio-output           \  /W    - no write protect
+   q-d3-1 QSPI_D3  gpio-output ;         \  /HOLD - no hold 
+: q-set-mode-bb2-output ( -- )           \ dual output mode
+   QSPI_D0  gpio-output
+   QSPI_D1  gpio-output
+   q-d2-1 QSPI_D2  gpio-output           \  /W    - no write protect
+   q-d3-1 QSPI_D3  gpio-output ;         \  /HOLD - no hold 
+: q-set-mode-bb2-init ( -- )             \ dual init output mode
+   q-cs-1 QSPI_NCS gpio-output
+   q-ck-0 QSPI_CLK gpio-output
+   q-d0-0 q-d1-0
+   q-set-mode-bb2-output ;               \  /HOLD - no hold 
+: q-set-mode-bb4-input ( -- )            \ quad input mode
+   QSPI_D0  gpio-input
+   QSPI_D1  gpio-input
+   QSPI_D2  gpio-input
+   QSPI_D3  gpio-input ;
+: q-set-mode-bb4-output ( -- )           \ quad output mode
+   QSPI_D0  gpio-output
+   QSPI_D1  gpio-output
+   QSPI_D2  gpio-output
+   QSPI_D3  gpio-output ;
+: q-set-mode-bb4-init ( -- )             \ quad init mode
+   q-cs-1 QSPI_NCS gpio-output
+   q-ck-0 QSPI_CLK gpio-output
+   q-d0-0 q-d1-0 q-d2-0 q-d3-0
+   q-set-mode-bb4-output ;
 : q-bb1-idle ( -- )                      \ set bit bang spi protocol to idle 
    q-cs-1 q-ck-0 q-d0-0 q-d1-1
    q-d2-1 q-d3-1 ;
@@ -117,6 +147,43 @@ PD13 constant QSPI_D3
 : q-bb1-c@ ( c -- )                      \ receive 1 byte in spi mode
    0 q-bb1-f@ q-bb1-f@ q-bb1-f@ q-bb1-f@
    q-bb1-f@ q-bb1-f@ q-bb1-f@ q-bb1-f@ ;
+: q-bb2-ff! ( c -- c )                   \ write 2 flags in dual mode shift tos by 2 
+   q-ck-0
+   dup $80 and q-d1!
+   dup $40 and q-d0! q-bb1-delay
+   q-ck-1 q-bb1-delay 2 lshift ;
+: q-bb2-ff@  ( c -- c )                  \ read 2 bits via dual bitbang
+   q-ck-0 q-bb1-delay 2 lshift
+   q-d1@ 2 and or
+   q-d0@ 1 and or
+   q-bb1-delay q-ck-1 ;
+: q-bb2-c! ( c -- )                      \ write character as bitbang dual mode
+   q-bb2-ff! q-bb2-ff!
+   q-bb2-ff! q-bb2-ff! drop ;
+: q-bb2-c@ ( -- c )                      \ read character as bitbang dual mode
+   0
+   q-bb2-ff@ q-bb2-ff@
+   q-bb2-ff@ q-bb2-ff@ ;
+: q-bb4-ffff! ( c -- c )                 \ write 2 flags in dual mode shift tos by 2 
+   q-ck-0
+   dup $80 and q-d3!
+   dup $40 and q-d2!
+   dup $20 and q-d1!
+   dup $10 and q-d0!
+   q-bb1-delay
+   q-ck-1 q-bb1-delay #4 lshift ;
+: q-bb4-ffff@  ( c -- c )                \ read 2 bits via dual bitbang
+   q-ck-0 q-bb1-delay #4 lshift
+   q-d3@ 8 and or
+   q-d2@ 4 and or
+   q-d1@ 2 and or
+   q-d0@ 1 and or
+   q-bb1-delay q-ck-1 ;
+: q-bb4-c! ( c -- )                      \ write character as bitbang dual mode
+   q-bb4-ffff! q-bb4-ffff! drop ;
+: q-bb4-c@ ( -- c )                      \ read character as bitbang dual mode
+   0
+   q-bb4-ffff@ q-bb4-ffff@ ;
 : q-bb1-start  ( -- )                    \ start spi transfer
    q-set-mode-bb1 q-cs-0 ;
 : q-bb1-read-id  ( -- )                  \ output device id to terminal
@@ -143,3 +210,91 @@ PD13 constant QSPI_D3
    q-bb1-start $02 q-bb1-c!              \ write enable must be sent before
    q-bb1-adr! tuck + swap
    ?do i c@ q-bb1-c! loop q-cs-1 ;
+: q-dummy ( -- ) dup drop ;              \ dummy place holder
+' q-bb1-c@ variable q-c@-hook            \ read char from qspi hook
+' q-bb1-c! variable q-c!-hook            \ write char to qspi hook
+' q-bb1-c@ variable q->-hook             \ qspi ouput mode hook
+' q-bb1-c! variable q-<-hook             \ qspi input mode hook
+' q-bb1-c! variable q-start-hook         \ qspi start hook
+' q-bb1-c! variable q-stop-hook          \ qspi stop hook
+' q-set-mode-bb1-output variable q-init-hook          \ qspi init hook
+: q-bb1-# ( -- )                         \ set bitbang single mode
+  ['] q-bb1-c!              q-c!-hook !
+  ['] q-bb1-c@              q-c@-hook !
+  ['] q-cs-0                q-start-hook ! 
+  ['] q-cs-1                q-stop-hook ! 
+  ['] q-dummy               q-<-hook ! 
+  ['] q-dummy               q->-hook ! 
+  ['] q-set-mode-bb1-output q-init-hook ! ;
+: q-bb2-# ( -- )                         \ set bitbang dual mode
+  ['] q-bb2-c!              q-c!-hook !
+  ['] q-bb2-c@              q-c@-hook !
+  ['] q-cs-0                q-start-hook ! 
+  ['] q-cs-1                q-stop-hook ! 
+  ['] q-set-mode-bb2-input  q-<-hook ! 
+  ['] q-set-mode-bb2-output q->-hook ! 
+  ['] q-set-mode-bb2-init   q-init-hook ! ;
+: q-bb4-# ( -- )                         \ set bitbang quad mode
+  ['] q-bb4-c!              q-c!-hook !
+  ['] q-bb4-c@              q-c@-hook !
+  ['] q-cs-0                q-start-hook ! 
+  ['] q-cs-1                q-stop-hook ! 
+  ['] q-set-mode-bb4-input  q-<-hook ! 
+  ['] q-set-mode-bb4-output q->-hook ! 
+  ['] q-set-mode-bb4-init   q-init-hook ! ;
+
+  
+: q-bb1< ( -- )                          \ set bitbang single mode input
+   q-set-mode-bb1-input ;
+: q-bb2> ( -- )                          \ set bitbang dual mode output
+   ['] q-bb2-c! q-c!-hook !
+   q-set-mode-bb2-output ;
+: q-bb2< ( -- )                          \ set bitbang dual mode input
+   ['] q-bb2-c@ q-c@-hook !
+   q-set-mode-bb2-input ;
+: q-bb4> ( -- )                          \ set bitbang quad mode output
+   ['] q-bb4-c! q-c!-hook !
+   q-set-mode-bb4-output ;
+: q-bb4< ( -- )                          \ set bitbang quad mode input
+   ['] q-bb4-c@ q-c@-hook !
+   q-set-mode-bb4-input ;
+: q-c@ ( -- c )                          \ read character from qspi bus
+   q-c@-hook @ execute ;
+: q-c! ( c -- )                          \ write character to qspi bus
+   q-c!-hook @ execute ;
+: q-start ( -- )                         \ initiate qspi transfer start
+   q-start-hook @ execute ;
+: q-stop ( -- )                          \ initiate qspi transfer start
+   q-stop-hook @ execute ;
+: q->  ( -- )                            \ output-mode
+   q->-hook @ execute ;
+: q-<  ( -- )                            \ input-mode
+   q-<-hook @ execute ;
+: q-init  ( -- )                         \ initialize ports
+   q-init-hook @ execute ;
+: q-adr!  ( a -- )                       \ send 24 bit address
+   dup #16 lshift q-c!
+   dup  #8 lshift q-c!
+                  q-c! ;   
+
+: q-@ ( a -- n )                         \ mode must be set to output before
+   q-init q-start $03 q-c!
+   q-adr! q-< q-c@ q-c@ #8 lshift or 
+   q-c@ #16 lshift or q-c@ #24 lshift or q-stop q-> ;
+: q-read ( l a qa -- )                   \ read memory block length l from qspi address qa to destination ram a
+   q-init q-start $03 q-c!
+   q-adr! q-< tuck + swap
+   ?do q-c@ i c! loop q-stop q-> ;
+: q-send-cmd ( c -- )                    \ send single byte command
+   q-init q-start q-c! q-stop q-> ;
+: q-write-enable ( -- )                  \ send write enable
+   $06 q-send-cmd ;
+: q-write-disable ( -- )                 \ send write disable
+   $04 q-send-cmd ;
+: q-erase-sub-sector ( a -- )            \ erase subsector at qspi adr a , write enable must vbe sent before
+   q-init q-start $20 q-c!
+   q-adr! q-stop q-> ;
+: q-write ( l a qa -- )                  \ write memory block length l from qspi address qa to destination ram a
+   q-init q-start $02 q-c!               \ write enable must be sent before
+   q-adr! tuck + swap
+   ?do i c@ q-c! loop q-stop q-> ;
