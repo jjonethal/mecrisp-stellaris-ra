@@ -58,7 +58,7 @@ $24         constant GPIO_AFRH
    port-base GPIO_IDR + 1-foldable ;
 : gpio-odr ( pin -- adr )                \ address of odr reg
    port-base GPIO_ODR + 1-foldable ;
-\\ gpio-rcc-clk! might get moved to rcc.fth
+\  gpio-rcc-clk! might get moved to rcc.fth
 : gpio-clk! ( f pin -- )                 \ enable/disable gpio port clock
    swap 0<> swap                         \ make f a flag
    port# 2^ RCC_AHB1ENR bits! ;
@@ -70,3 +70,8 @@ $24         constant GPIO_AFRH
    0 swap gpio-mode! ;
 : gpio-output ( pin -- )                 \ set pin to output mode
    1 swap gpio-mode! ;
+: pin-off  ( pin -- m a )                \ generate pin of mask and bsrr address
+   dup bsrr-off swap gpio-bsrr 1-foldable ;
+: pin-on  ( pin -- m a )                 \ generate pin of mask and bsrr address
+   dup bsrr-on swap gpio-bsrr 1-foldable ;
+
