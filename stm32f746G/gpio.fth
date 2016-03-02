@@ -64,6 +64,8 @@ $24         constant GPIO_AFRH
    port# 2^ RCC_AHB1ENR bits! ;
 : bsrr-on  ( pin -- v )                  \ gpio_bsrr mask pin on
    pin# 1 swap lshift 1-foldable ;
+: gpio-in#  ( pin -- v )                 \ gpio input mask e.g. PB3 -> %1000 (2^3)
+   bsrr-on 1-foldable inline ;
 : bsrr-off  ( pin -- v )                 \ gpio_bsrr mask pin off
    pin# #16 + 1 swap lshift 1-foldable ;
 : gpio-input ( pin -- )                  \ set pin to input mode
