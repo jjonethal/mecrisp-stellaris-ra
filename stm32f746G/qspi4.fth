@@ -1,3 +1,10 @@
+
+: swap-bytes ( w -- w )                  \ swap byte order ( 1234 -- 4321 )
+   dup #24 rshift $ff and                \ b3
+   over #8 rshift $ff00 and or           \ b2,b3
+   over $ff00 and #8 lshift or           \ b1,b2,b3
+   swap $ff and #24 lshift or ;          \ b0,b1,b2,b3
+
 : qc>! ( c -- )                          \ output 8 bit on qspi 
    #24 lshift qc> drop ;
 : qa>! ( a24 -- )                        \ output 24 bit address on qspi 
