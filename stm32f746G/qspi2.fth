@@ -7,7 +7,7 @@
    over #8 rshift $ff00 and or           \ b2,b3
    over $ff00 and #8 lshift or           \ b1,b2,b3
    swap $ff and #24 lshift or ;          \ b0,b1,b2,b3
-: gpio-<#a ( pin -- m a )                \ return gpio input mask address
+: gpio-<#a ( pin -- m a )                \ return gpio input mask and address
    pin# 2^ swap
    port-base $10 or 1-foldable ;
 : hh/l# ( f -- m ) 0= $FFFF xor          \ Mask high/low half word low 0:$ffff0000 1:0000FFFF
