@@ -164,7 +164,7 @@ PD13 constant QSPI_D3
    0
    q-bb2-ff@ q-bb2-ff@
    q-bb2-ff@ q-bb2-ff@ ;
-: q-bb4-ffff! ( c -- c )                 \ write 2 flags in dual mode shift tos by 2 
+: q-bb4-ffff! ( c -- c )                 \ write 4 flags in quad mode shift tos left by 4 
    q-ck-0
    dup $80 and q-d3!
    dup $40 and q-d2!

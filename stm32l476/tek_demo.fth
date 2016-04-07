@@ -279,7 +279,7 @@
   2dup 100 100 v2-add lineto
        100   0 v2-add lineto CR  ;
 : field dup constant 4 + ;                    \ create field definitions
-0 0 0 0   0 0 0 0 8 nvariable mycircle
+0 0 0 0   0 0 0 0  8 nvariable mycircle
 0 field c.x0#                                 \ circle center x0
   field c.y0#                                 \ circle center y0
   field c.r#                                  \ circle radius

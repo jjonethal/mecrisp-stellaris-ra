@@ -35,4 +35,7 @@
    q-start $02 qc>! qa>!
    qc> qc> qc> qc> drop q-stop ;
 
+\ s c s a s nw - single mode command , single mode address , single mode n byte write
+\ d c d a d nr - dual   mode command , dual   mode address , dual   mode n byte read
+\ s c s p      - single mode command , single mode param 
 
